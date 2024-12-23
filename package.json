@@ -1,0 +1,17 @@
+{
+  "name": "littleswaps-functions",
+  "description": "Cloud Functions for Firebase Little Swaps",
+  "scripts": {
+    "install": "cd functions && npm install",
+    "lint": "cd functions && npm run lint",
+    "serve": "cd functions && npm run serve",
+    "shell": "cd functions && npm run shell",
+    "start": "cd functions && npm run start",
+    "deploy": "firebase deploy --only functions",
+    "logs": "cd functions && npm run logs",
+    "test": "cd functions && npm run test",
+    "test:watch": "cd functions && npm run test:watch",
+    "test:coverage": "cd functions && npm run test:coverage"
+  },
+  "private": true
+}

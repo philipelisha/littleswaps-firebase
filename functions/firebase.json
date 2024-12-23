@@ -1,0 +1,17 @@
+{
+  "functions": [
+    {
+      "source": "/",
+      "runtime": "nodejs18",
+      "region": "us-central1",
+      "projectId": "babalu-476f1",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ hosting/.cache
 /functions/node_modules/
 /functions/.env
 /functions/package-lock.json
+/functions/.yarn/*
 
 # Firebase Emulators
 /firebase-*.zip
