@@ -58,7 +58,7 @@ export const createProduct = async (event) => {
       .doc(productId)
       .get();
     const data = productDoc.data();
-    
+
     await updateUsersListingCounts(data.user, {
       isNew: true,
       updatingActive: true,
@@ -108,7 +108,7 @@ export const updateProduct = async (event) => {
     const afterData = event.data.after.data();
     logger.info('beforeData', beforeData)
     logger.info('afterData', afterData)
-    
+
 
     const productId = event.params.productId;
     const productDoc = await admin
@@ -255,3 +255,32 @@ export const searchProducts = async (data, context) => {
     db && db.$pool.end();
   }
 };
+
+export const onShare = async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new https.HttpsError("unauthenticated", "Authentication required.")
+    }
+
+    const { productId, userId } = data;
+
+    await admin
+      .firestore()
+      .collection("products")
+      .doc(productId)
+      .update({
+        shares: admin.firestore.FieldValue.increment(1),
+      });
+
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .update({
+        totalShares: admin.firestore.FieldValue.increment(1),
+      });
+
+  } catch (error) {
+
+  }
+}

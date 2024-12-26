@@ -241,8 +241,13 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
   }
 
   const { rateId, productId } = data;
-
+  
+  
   try {
+    await admin.firestore().collection("products").doc(productId).update({
+      shippingLabelCreating: true
+    });
+    
     const transaction = await shippo.transactions.create({
       rate: rateId,
       label_file_type: "PDF",

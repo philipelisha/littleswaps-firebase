@@ -20,6 +20,7 @@ export const createOrder = onDocumentCreated('/users/{userId}/orders/{orderId}',
 export const createProduct = onDocumentCreated('/products/{productId}', products.createProduct);
 export const updateProduct = onDocumentUpdated('/products/{productId}', products.updateProduct);
 export const deleteProduct = onDocumentDeleted('/products/{productId}', products.deleteProduct);
+export const shareProduct = https.onCall(products.onShare);
 export const searchProducts = https.onCall(products.searchProducts);
 export const createLike = onDocumentCreated('/likes/{likeId}', likes.createLike);
 export const deleteLike = onDocumentDeleted('/likes/{likeId}', likes.deleteLike);
