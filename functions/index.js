@@ -39,6 +39,7 @@ export const getEstimatedTaxes = https.onCall(payments.getEstimatedTaxes);
 export const failedPaymentIntent = https.onRequest(payments.failedPaymentIntent);
 
 //shippo
+export const validateAddress = https.onCall(payments.validateAddress);
 export const createShipment = https.onCall(payments.createShipment);
 export const createLabel = https.onCall(payments.createLabel); 
 export const saveShippingLabel = https.onRequest(payments.saveShippingLabel);

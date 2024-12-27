@@ -3,6 +3,7 @@ import stripe from "stripe";
 import admin from '../../adminConfig.js';
 import { Shippo } from "shippo";
 import { orderActions } from '../../order.config.js';
+import axios from 'axios';
 import { onUpdateOrderStatus } from '../orders/index.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
@@ -241,13 +242,13 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
   }
 
   const { rateId, productId } = data;
-  
-  
+
+
   try {
     await admin.firestore().collection("products").doc(productId).update({
       shippingLabelCreating: true
     });
-    
+
     const transaction = await shippo.transactions.create({
       rate: rateId,
       label_file_type: "PDF",
@@ -263,6 +264,51 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
       message: error.message,
       status: 'failed'
     };
+  }
+};
+
+export const validateAddress = async (data, context) => {
+  logger.info("~~~~~~~~~~~~ START validateAddress ~~~~~~~~~~~~", data);
+
+  if (!context.auth) {
+    throw new https.HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const { street, street2, city, state, zip, country, name } = data;
+  const shippoKey = process.env.shippoKey;
+
+  if (!shippoKey) {
+    throw new https.HttpsError("failed-precondition", "Shippo API key not configured.");
+  }
+
+  const url = `https://api.goshippo.com/v2/addresses/validate?address_line_1=${encodeURIComponent(
+    street
+  )}&address_line_2=${encodeURIComponent(street2)}&city_locality=${encodeURIComponent(
+    city
+  )}&state_province=${encodeURIComponent(state)}&postal_code=${encodeURIComponent(
+    zip
+  )}&country_code=${encodeURIComponent(country)}&organization=${encodeURIComponent(
+    name
+  )}`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `ShippoToken ${shippoKey}`,
+      },
+    });
+
+    logger.info('validateAddress response', response.data);
+
+    return response.data;
+  } catch (error) {
+    logger.error(JSON.stringify(error.message));
+
+    throw new https.HttpsError(
+      "internal",
+      "Failed to validate address",
+      error.message
+    );
   }
 };
 
