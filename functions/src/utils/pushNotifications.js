@@ -1,8 +1,8 @@
 import admin from '../../adminConfig.js';
 import { logger } from 'firebase-functions';
-import { orderActions, orderStatuses } from '../../order.config.js';
+import { orderActions, statusTypes } from '../../order.config.js';
 
-const { productStatus } = orderStatuses;
+const { productStatus } = statusTypes;
 
 export const sendNotificationToUser = async ({ userId, type, args }) => {
   const payload = getNotificationPayload(type, args);

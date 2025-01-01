@@ -1,8 +1,8 @@
 import { logger } from "firebase-functions";
 import admin from '../../adminConfig.js';
-import { emailTemplates, sendEmail } from "../utils/emails.js";
+import { emailTemplates, sendEmail } from "../utils/index.js";
 
-const defaultProfileImage = 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media';
+export const defaultProfileImage = 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media';
 
 export const createUser = async (event) => {
   try {
@@ -111,7 +111,6 @@ const syncLikes = async (userId, user) => {
   }
 };
 
-
 const syncFollowers = async (userId, user) => {
   const followersRef = admin.firestore().collection('followers');
   const batch = admin.firestore().batch();
@@ -138,11 +137,13 @@ const syncFollowers = async (userId, user) => {
 };
 
 const syncReviews = async (userId, user) => {
+  console.log('h ih  i hi')
   const batch = admin.firestore().batch();
   const userDoc = admin.firestore().collection('users').doc(userId);
 
   const promises = [];
 
+  // console.log('reviewsGivenSnapshot', reviewsGivenSnapshot)
   const reviewsGivenSnapshot = await userDoc.collection('reviewsGiven').get();
   reviewsGivenSnapshot.forEach((reviewDoc) => {
     const reviewData = reviewDoc.data();

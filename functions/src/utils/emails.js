@@ -2,16 +2,16 @@ import admin from '../../adminConfig.js';
 import { logger } from 'firebase-functions';
 
 export const emailTemplates = {
-  USER_SIGN_UP: 'vywj2lp655q47oqz', //DONE
-  BUYER_NEW_ORDER: '0r83ql3k3dp4zw1j', //DONE
-  BUYER_SHIPPED: 'zr6ke4nm8mvgon12',  //DONE
-  BUYER_DELIVERED: '351ndgw659n4zqx8',  //DONE
-  BUYER_FAILED_PAYMENT: 'neqvygmmyx5g0p7w', // stripe webhoook
-  SELLER_NEW_ORDER: 'jy7zpl9qvj545vx6', //DONE
-  SELLER_SHIPPED: '3vz9dleq6q1lkj50',  //DONE
-  SELLER_DELIVERED: 'ynrw7gykjkn42k8e',  //DONE
-  SELLER_PAYMENT: 'pq3enl67rv5g2vwr',  //DONE
-  SWAPSPOT_NEW_ORDER: 'z3m5jgrkr1oldpyo', //DONE
+  USER_SIGN_UP: 'vywj2lp655q47oqz',
+  BUYER_NEW_ORDER: '0r83ql3k3dp4zw1j',
+  BUYER_SHIPPED: 'zr6ke4nm8mvgon12',
+  BUYER_DELIVERED: '351ndgw659n4zqx8',
+  BUYER_FAILED_PAYMENT: 'neqvygmmyx5g0p7w',
+  SELLER_NEW_ORDER: 'jy7zpl9qvj545vx6',
+  SELLER_SHIPPED: '3vz9dleq6q1lkj50',
+  SELLER_DELIVERED: 'ynrw7gykjkn42k8e',
+  SELLER_PAYMENT: 'pq3enl67rv5g2vwr',
+  SWAPSPOT_NEW_ORDER: 'z3m5jgrkr1oldpyo',
 }
 
 export const sendEmail = async ({ email, data, templateId }) => {

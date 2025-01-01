@@ -7,11 +7,11 @@ import {
   deleteQuery,
   searchQuery,
 } from './constants.js';
-import { sendNotificationToUser } from "../utils/pushNotifications.js";
-import { orderStatuses } from "../../order.config.js";
+import { sendNotificationToUser } from "../utils/index.js";
+import { statusTypes } from "../../order.config.js";
 import { updateUsersListingCounts } from "./updateUsersListingCounts.js";
 
-const { productStatus } = orderStatuses;
+const { productStatus } = statusTypes;
 
 const sendNotifications = (product) => {
   const notifications = [];
@@ -109,7 +109,6 @@ export const updateProduct = async (event) => {
     logger.info('beforeData', beforeData)
     logger.info('afterData', afterData)
 
-
     const productId = event.params.productId;
     const productDoc = await admin
       .firestore()
@@ -121,7 +120,7 @@ export const updateProduct = async (event) => {
     updateUsersListingCounts(data.user, {
       isActive: data.active,
       updatingActive: beforeData.active !== afterData.active,
-      isSold: !beforeData.purchaseDate && afterData.purchaseDate,
+      isSold: Boolean(!beforeData.purchaseDate && afterData.purchaseDate),
     });
 
     if (data.status === productStatus.PENDING_SHIPPING || data.status === productStatus.PENDING_SWAPSPOT_ARRIVAL) {
@@ -281,6 +280,6 @@ export const onShare = async (data, context) => {
       });
 
   } catch (error) {
-
+    logger.error('on share error', error.message)
   }
 }

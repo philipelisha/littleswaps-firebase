@@ -11,7 +11,7 @@ const productShippingCommon = {
   'OUT_FOR_DELIVERY': 'OUT_FOR_DELIVERY',
 };
 
-export const orderStatuses = {
+export const statusTypes = {
   productStatus: {
     ...productCommon,
     ...productShippingCommon,

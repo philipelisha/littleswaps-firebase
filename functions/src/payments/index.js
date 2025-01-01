@@ -4,7 +4,7 @@ import admin from '../../adminConfig.js';
 import { Shippo } from "shippo";
 import { orderActions } from '../../order.config.js';
 import axios from 'axios';
-import { onUpdateOrderStatus } from '../orders/index.js';
+import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
 
@@ -59,7 +59,7 @@ export const confirmPaymentIntent = async (data, context, stripe = stripeSDK) =>
 
     const confirmedIntent = await stripe.paymentIntents.confirm(
       paymentIntentId,
-      { return_url: 'https://littleswaps.com' },
+      { return_url: 'https://littleswaps.com/redirect?path=orders' },
     )
 
     logger.info('Confirming payment intent.', JSON.stringify(confirmedIntent))
@@ -114,8 +114,8 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
 
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: 'https://littleswaps.com/user-balance?reauth=true&accountId=' + account.id,
-      return_url: 'https://littleswaps.com/user-balance',
+      refresh_url: 'https://littleswaps.com/redirect?path=user-balance&reauth=true&accountId=' + account.id,
+      return_url: 'https://littleswaps.com/redirect?path=user-balance',
       type: 'account_onboarding',
     });
 

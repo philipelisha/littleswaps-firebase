@@ -5,8 +5,12 @@ import {
   updateProduct,
   deleteProduct,
   searchProducts,
+  onShare
 } from './index';
 import { connectToPostgres } from './connectToPostgres';
+import { sendNotificationToUser } from "../utils/index.js";
+import { updateUsersListingCounts } from "./updateUsersListingCounts.js";
+import { statusTypes } from "../../order.config.js";
 
 expect.extend({
   arrayContainingWithOrder(received, sample) {
@@ -35,32 +39,13 @@ expect.extend({
   },
 });
 
-const productData = {
-  active: true,
-  brand: 'MockBrand',
-  colors: ['Red', 'Blue'],
-  likes: 10,
-  location: 'MockLocation',
-  isNewWithTags: true,
-  mainCategory: 'MockMainCategory',
-  subCategory: 'MockSubCategory',
-  mainImage: 'MockImage.jpg',
-  price: 60,
-  priceCurrency: 'USD',
-  size: 'Medium',
-  title: 'MockProduct',
-  updated: 1708926137,
-  user: 'mock-user-id',
-  availableShipping: 'Swap Spot',
-  latitude: 100,
-  longitude: 50
-};
+let mockData = () => ({});
 jest.mock('../../adminConfig', () => ({
   firestore: () => ({
     collection: () => ({
       doc: jest.fn((userId) => ({
         get: jest.fn(() => ({
-          data: () => productData,
+          data: mockData
         })),
       })),
     }),
@@ -86,105 +71,262 @@ jest.mock('firebase-functions', () => ({
   },
   https: {
     onCall: jest.fn(),
-    HttpsError: class MockHttpsError extends Error {
-      constructor(code, message) {
-        super(message);
-        this.code = code;
-      }
-    },
+    HttpsError: jest.fn(),
   },
 }));
 
-jest.mock('./updateUsersListingCounts', () => ({
+jest.mock('./updateUsersListingCounts.js', () => ({
   updateUsersListingCounts: jest.fn()
 }))
 
-jest.mock('../utils/pushNotifications', () => ({
+jest.mock('../utils/index.js', () => ({
   sendNotificationToUser: jest.fn()
 }))
 
 describe('Products Functions', () => {
-  it('should add a product to PostgreSQL', async () => {
-    const db = connectToPostgres();
-    const productId = 'default-product-id'
-    await createProduct({ params: { productId: productId } });
-
-    const expectedInsert = `INSERT INTO products( firestoreId, active, userId, title, mainImage, price, priceCurrency, location, latitude, longitude, mainCategory, subCategory, size, brand, colors, isNewWithTags, likes, updated, availableShipping, condition )`;
-    const expectedValues = `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`;
-
-    const firstArg = connectToPostgres().none.mock.calls[0][0];
-    expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedInsert);
-    expect(firstArg).toMatch(expectedValues);
-    expect(db.none).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.arrayContainingWithOrder([
-        productId,
-        productData.active,
-        productData.user,
-        productData.title,
-        productData.mainImage,
-        productData.price,
-        productData.priceCurrency,
-        productData.location,
-        productData.latitude,
-        productData.longitude,
-        productData.mainCategory,
-        productData.subCategory,
-        productData.size,
-        productData.brand,
-        productData.colors,
-        productData.isNewWithTags,
-        productData.likes,
-        new Date(productData.updated * 1000).toISOString(),
-        productData.availableShipping,
-      ]),
-    )
-  });
-
-  it.only('should update a product to PostgreSQL', async () => {
-    const db = connectToPostgres();
-    const productId = 'default-product-id'
-    await updateProduct({ 
-      params: { productId: productId },
-      data: {
-        before: {
-          data: jest.fn().mockResolvedValue({}),
-        },
-        after: {
-          data: jest.fn().mockResolvedValue({}),
-        },
-      }
+  let productData;
+  describe('when status is pending shipping', () => {
+    beforeEach(async () => {
+      productData = {
+        active: true,
+        brand: 'MockBrand',
+        colors: ['Red', 'Blue'],
+        likes: 10,
+        location: 'MockLocation',
+        isNewWithTags: true,
+        mainCategory: 'MockMainCategory',
+        subCategory: 'MockSubCategory',
+        mainImage: 'MockImage.jpg',
+        price: 60,
+        priceCurrency: 'USD',
+        size: 'Medium',
+        title: 'MockProduct',
+        updated: 1708926137,
+        user: 'mock-user-id',
+        buyer: 'mock-buyer-id',
+        availableShipping: 'Swap Spot',
+        latitude: 100,
+        longitude: 50,
+        status: 'PENDING_SHIPPING'
+      };
+      mockData = () => productData;
     });
 
-    const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20 WHERE firestoreid = $21`;
-    const firstArg = connectToPostgres().none.mock.calls[0][0];
-    expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
-    expect(db.none).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.arrayContainingWithOrder([
-        productData.active,
-        productData.user,
-        productData.title,
-        productData.mainImage,
-        productData.price,
-        productData.priceCurrency,
-        productData.location,
-        productData.latitude,
-        productData.longitude,
-        productData.mainCategory,
-        productData.subCategory,
-        productData.size,
-        productData.brand,
-        productData.colors,
-        productData.isNewWithTags,
-        productData.likes,
-        new Date(productData.updated * 1000).toISOString(),
-        productData.availableShipping,
-        null,
-        productData.condition,
-        'default-product-id'
-      ]),
-    );
+    it('should add a product to PostgreSQL', async () => {
+      const db = connectToPostgres();
+      const productId = 'default-product-id'
+      await createProduct({ params: { productId: productId } });
+
+      expect(updateUsersListingCounts).toHaveBeenCalledWith(productData.user, {
+        isNew: true,
+        updatingActive: true,
+        isActive: productData.active,
+        isSold: false,
+      })
+
+      const expectedInsert = `INSERT INTO products( firestoreId, active, userId, title, mainImage, price, priceCurrency, location, latitude, longitude, mainCategory, subCategory, size, brand, colors, isNewWithTags, likes, updated, availableShipping, condition )`;
+      const expectedValues = `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`;
+
+      const firstArg = connectToPostgres().none.mock.calls[0][0];
+      expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedInsert);
+      expect(firstArg).toMatch(expectedValues);
+      expect(db.none).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContainingWithOrder([
+          productId,
+          productData.active,
+          productData.user,
+          productData.title,
+          productData.mainImage,
+          productData.price,
+          productData.priceCurrency,
+          productData.location,
+          productData.latitude,
+          productData.longitude,
+          productData.mainCategory,
+          productData.subCategory,
+          productData.size,
+          productData.brand,
+          productData.colors,
+          productData.isNewWithTags,
+          productData.likes,
+          new Date(productData.updated * 1000).toISOString(),
+          productData.availableShipping,
+        ]),
+      )
+    });
+
+    it('should update a product to PostgreSQL', async () => {
+      const db = connectToPostgres();
+      const productId = 'default-product-id'
+      await updateProduct({
+        params: { productId: productId },
+        data: {
+          before: {
+            data: () => ({ active: true }),
+          },
+          after: {
+            data: () => ({ active: false }),
+          },
+        }
+      });
+
+      expect(updateUsersListingCounts).toHaveBeenCalledWith(productData.user, {
+        isActive: productData.active,
+        updatingActive: true,
+        isSold: false,
+      })
+
+      expect(sendNotificationToUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: expect.objectContaining({
+            title: "MockProduct",
+          }),
+          type: "buyer_PENDING_SHIPPING",
+          userId: "mock-buyer-id",
+        })
+      );
+
+      expect(sendNotificationToUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: expect.objectContaining({
+            title: "MockProduct",
+          }),
+          type: "seller_PENDING_SHIPPING",
+          userId: "mock-user-id",
+        })
+      );
+
+      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20 WHERE firestoreid = $21`;
+      const firstArg = connectToPostgres().none.mock.calls[0][0];
+      expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
+      expect(db.none).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContainingWithOrder([
+          productData.active,
+          productData.user,
+          productData.title,
+          productData.mainImage,
+          productData.price,
+          productData.priceCurrency,
+          productData.location,
+          productData.latitude,
+          productData.longitude,
+          productData.mainCategory,
+          productData.subCategory,
+          productData.size,
+          productData.brand,
+          productData.colors,
+          productData.isNewWithTags,
+          productData.likes,
+          new Date(productData.updated * 1000).toISOString(),
+          productData.availableShipping,
+          null,
+          productData.condition,
+          'default-product-id'
+        ]),
+      );
+    });
+  });
+
+  describe('when status is pending swap spot arrival', () => {
+    beforeEach(async () => {
+      productData = {
+        active: true,
+        brand: 'MockBrand',
+        colors: ['Red', 'Blue'],
+        likes: 10,
+        location: 'MockLocation',
+        isNewWithTags: true,
+        mainCategory: 'MockMainCategory',
+        subCategory: 'MockSubCategory',
+        mainImage: 'MockImage.jpg',
+        price: 60,
+        priceCurrency: 'USD',
+        size: 'Medium',
+        title: 'MockProduct',
+        updated: 1708926137,
+        user: 'mock-user-id',
+        buyer: 'mock-buyer-id',
+        availableShipping: 'Swap Spot',
+        latitude: 100,
+        longitude: 50,
+        status: 'PENDING_SWAPSPOT_ARRIVAL'
+      };
+      mockData = () => productData;
+    });
+
+    it('should update a product to PostgreSQL', async () => {
+      const db = connectToPostgres();
+      const productId = 'default-product-id'
+      await updateProduct({
+        params: { productId: productId },
+        data: {
+          before: {
+            data: () => ({ active: true }),
+          },
+          after: {
+            data: () => ({ active: false }),
+          },
+        }
+      });
+
+      expect(updateUsersListingCounts).toHaveBeenCalledWith(productData.user, {
+        isActive: productData.active,
+        updatingActive: true,
+        isSold: false,
+      })
+
+      expect(sendNotificationToUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: expect.objectContaining({
+            title: "MockProduct",
+          }),
+          type: "buyer_PENDING_SWAPSPOT_ARRIVAL",
+          userId: "mock-buyer-id",
+        })
+      );
+
+      expect(sendNotificationToUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: expect.objectContaining({
+            title: "MockProduct",
+          }),
+          type: "seller_PENDING_SWAPSPOT_ARRIVAL",
+          userId: "mock-user-id",
+        })
+      );
+
+      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20 WHERE firestoreid = $21`;
+      const firstArg = connectToPostgres().none.mock.calls[0][0];
+      expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
+      expect(db.none).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContainingWithOrder([
+          productData.active,
+          productData.user,
+          productData.title,
+          productData.mainImage,
+          productData.price,
+          productData.priceCurrency,
+          productData.location,
+          productData.latitude,
+          productData.longitude,
+          productData.mainCategory,
+          productData.subCategory,
+          productData.size,
+          productData.brand,
+          productData.colors,
+          productData.isNewWithTags,
+          productData.likes,
+          new Date(productData.updated * 1000).toISOString(),
+          productData.availableShipping,
+          null,
+          productData.condition,
+          'default-product-id'
+        ]),
+      );
+    });
   });
 
   it('should delete a product from PostgreSQL', async () => {
@@ -217,7 +359,7 @@ describe('Products Functions', () => {
       radius: 10
     };
 
-    admin.firestore = jest.fn(() => firestoreMock);
+    admin.firestore = jest.fn();
     const db = connectToPostgres();
     await searchProducts(searchData, { auth: {} });
 
@@ -291,7 +433,7 @@ describe('Products Functions', () => {
       isProfile: true,
     }
 
-    admin.firestore = jest.fn(() => firestoreMock);
+    admin.firestore = jest.fn();
     const db = connectToPostgres();
     await searchProducts(searchData, { auth: {} });
 
@@ -368,7 +510,7 @@ describe('Products Functions', () => {
       textFilter: 'test text'
     }
 
-    admin.firestore = jest.fn(() => firestoreMock);
+    admin.firestore = jest.fn();
     const db = connectToPostgres();
     await searchProducts(searchData, { auth: {} });
 
@@ -448,7 +590,7 @@ describe('Products Functions', () => {
       radius: 10
     }
 
-    admin.firestore = jest.fn(() => firestoreMock);
+    admin.firestore = jest.fn();
     const db = connectToPostgres();
     await searchProducts(searchData, { auth: {} });
 
@@ -510,4 +652,55 @@ describe('Products Functions', () => {
       ]),
     )
   });
+
+  describe('onShare Function', () => {
+    const mockContext = { auth: { uid: 'mock-user-id' } };
+    const mockData = { productId: 'mock-product-id', userId: 'mock-user-id' };
+
+    beforeEach(() => {
+      admin.firestore = jest.fn().mockReturnValue({
+        collection: jest.fn().mockReturnThis(),
+        doc: jest.fn().mockReturnThis(),
+        update: jest.fn().mockResolvedValue(),
+      });
+      admin.firestore.FieldValue = {
+        increment: (val) => val
+      }
+    });
+
+    it('should increment shares for the product and user', async () => {
+      await onShare(mockData, mockContext);
+
+      expect(admin.firestore().collection).toHaveBeenCalledWith('products');
+      expect(admin.firestore().doc).toHaveBeenCalledWith('mock-product-id');
+      expect(admin.firestore().update).toHaveBeenCalledWith({
+        shares: admin.firestore.FieldValue.increment(1),
+      });
+
+      expect(admin.firestore().collection).toHaveBeenCalledWith('users');
+      expect(admin.firestore().doc).toHaveBeenCalledWith('mock-user-id');
+      expect(admin.firestore().update).toHaveBeenCalledWith({
+        totalShares: admin.firestore.FieldValue.increment(1),
+      });
+    });
+
+    // it('should throw an error if unauthenticated', async () => {
+    //   const unauthenticatedContext = { auth: null };
+    //   await expect(onShare(mockData, unauthenticatedContext)).rejects.toThrowError(
+    //     new https.HttpsError('unauthenticated', 'Authentication required.')
+    //   );
+    // });
+
+    it('should log an error if the update fails', async () => {
+      admin.firestore().update.mockRejectedValue(new Error('Update failed'));
+
+      await onShare(mockData, mockContext);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'on share error',
+        'Update failed'
+      );
+    });
+  });
+
 });
