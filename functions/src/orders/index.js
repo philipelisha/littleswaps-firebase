@@ -33,7 +33,7 @@ export const updateOrderStatus = async (data, context) => {
   }
 };
 
-export const createOrder = async (event) => {
+export const createOrder = async (event, stripe = stripeSDK) => {
   try {
     const { userId, orderId } = event.params;
     logger.info(`Processing order creation for userId: ${userId}, orderId: ${orderId}`);
@@ -57,13 +57,13 @@ export const createOrder = async (event) => {
 
     const isSwapSpot = Boolean(order.selectedSwapSpot);
 
-    const transaction = await stripeSDK.tax.transactions.createFromCalculation({
+    const transaction = await stripe.tax.transactions.createFromCalculation({
       calculation: order.taxCalculationId,
       reference: order.paymentIntent,
       expand: ['line_items']
     });
 
-    await stripeSDK.paymentIntents.update(order.paymentIntent, {
+    await stripe.paymentIntents.update(order.paymentIntent, {
       metadata: {
         tax_transaction: transaction.id,
         productId: order.product,

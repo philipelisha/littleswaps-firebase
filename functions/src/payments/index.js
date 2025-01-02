@@ -7,8 +7,8 @@ import axios from 'axios';
 import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
-
-const shippoSDK = new Shippo({ apiKeyHeader: process.env.shippoKey });
+const shippoKey = process.env.shippoKey
+const shippoSDK = new Shippo({ apiKeyHeader: shippoKey });
 
 export const addCardToPaymentIntent = async (data, context, stripe = stripeSDK) => {
   try {
@@ -96,12 +96,12 @@ export const confirmPaymentIntent = async (data, context, stripe = stripeSDK) =>
 
 export const createStripeAccount = async (data, context, stripe = stripeSDK) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required.');
+    throw new https.HttpsError('unauthenticated', 'Authentication required.');
   }
 
-  const { email, user } = data;
-
   try {
+
+    const { email, user } = data;
     logger.info('Starting to create the stripe account')
     const account = await stripe.accounts.create({
       type: 'express',
@@ -136,7 +136,7 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
 
 export const getStripeBalance = async (data, context, stripe = stripeSDK) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required.');
+    throw new https.HttpsError('unauthenticated', 'Authentication required.');
   }
 
   const { accountId } = data;
@@ -149,17 +149,15 @@ export const getStripeBalance = async (data, context, stripe = stripeSDK) => {
 
     return balance;
   } catch (error) {
-    logger.error(JSON.stringify(error.message))
-    logger.error('Error getting Stripe balance:', error);
+    logger.error('Error getting Stripe balance:', error.message);
     return false;
   }
 };
 
 export const getLinkedAccounts = async (data, context, stripe = stripeSDK) => {
-  logger.info("getLinkedAccounts")
   if (!context.auth) {
     logger.error("You must be authenticated to call this function.")
-    throw new functions.https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
+    throw new https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
   }
 
   const { accountId } = data;
@@ -173,8 +171,7 @@ export const getLinkedAccounts = async (data, context, stripe = stripeSDK) => {
 
     return externalAccounts.data;
   } catch (error) {
-    logger.error(JSON.stringify(error.message))
-    logger.error('Error getting Stripe linked accounts:', error);
+    logger.error('Error getting Stripe linked accounts:', error.message);
     return false;
   }
 }
@@ -184,7 +181,7 @@ export const createLoginLink = async (data, context, stripe = stripeSDK) => {
 
   if (!context.auth) {
     logger.error("You must be authenticated to call this function.");
-    throw new functions.https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
+    throw new https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
   }
 
   const { accountId } = data;
@@ -195,11 +192,88 @@ export const createLoginLink = async (data, context, stripe = stripeSDK) => {
 
     return loginLink.url;
   } catch (error) {
-    logger.error(JSON.stringify(error.message));
-    logger.error('Error creating Stripe login link:', error);
+    logger.error('Error creating Stripe login link:', error.message);
     return false;
   }
 };
+
+export const getEstimatedTaxes = async (data, context, stripe = stripeSDK) => {
+  if (!context.auth) {
+    logger.error("You must be authenticated to call this function.");
+    throw new https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
+  }
+
+  logger.info("getEstimatedTaxes data: ", data);
+
+  const {
+    shippingRateInCents,
+    itemPriceInCents,
+    taxableAddress,
+    taxBehavior = 'exclusive',
+  } = data;
+
+  try {
+    const taxCalculation = await stripe.tax.calculations.create({
+      currency: 'usd',
+      shipping_cost: {
+        amount: shippingRateInCents,
+      },
+      line_items: [
+        {
+          amount: itemPriceInCents,
+          quantity: 1,
+          reference: 'L1',
+          tax_behavior: taxBehavior,
+        },
+      ],
+      customer_details: {
+        address: {
+          line1: taxableAddress.street,
+          city: taxableAddress.city,
+          state: taxableAddress.state,
+          postal_code: taxableAddress.zip,
+          country: taxableAddress.country,
+        },
+        address_source: 'shipping',
+      },
+    });
+
+    logger.info('Success getting the tax calc', taxCalculation);
+
+    return {
+      taxCalculationId: taxCalculation?.id,
+      tax: parseFloat((taxCalculation?.tax_amount_exclusive / 100).toFixed(2))
+    };
+  } catch (error) {
+    logger.error('Error estimating taxes:', error.message);
+    return false;
+  }
+};
+
+export const failedPaymentIntent = async (req, res) => {
+  const sig = request.headers['stripe-signature'];
+
+  let event;
+
+  try {
+    event = stripeSDK.webhooks.constructEvent(req.body, sig, process.env.secret);
+  } catch (error) {
+    logger.error('Webhook Error: ', error);
+    return res.status(400).send(`Webhook Error: ${error.message}`);
+  }
+
+  switch (event.type) {
+    case 'payment_intent.payment_failed':
+    case 'payment_intent.requires_action':
+      logger.info('Got here: ', event.data);
+      break;
+    default:
+      logger.error('Unhandled event type', event.type);
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  return res.status(200).send('Suceeded');
+}
 
 export const createShipment = async (data, context, shippo = shippoSDK) => {
   logger.info('~~~~~~~~~~~~ START createShipment ~~~~~~~~~~~~')
@@ -275,7 +349,6 @@ export const validateAddress = async (data, context) => {
   }
 
   const { street, street2, city, state, zip, country, name } = data;
-  const shippoKey = process.env.shippoKey;
 
   if (!shippoKey) {
     throw new https.HttpsError("failed-precondition", "Shippo API key not configured.");
@@ -419,84 +492,3 @@ export const orderTrackingUpdate = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 }
-
-export const failedPaymentIntent = async (req, res) => {
-  const sig = request.headers['stripe-signature'];
-
-  let event;
-
-  try {
-    event = stripeSDK.webhooks.constructEvent(req.body, sig, process.env.secret);
-  } catch (error) {
-    logger.error('Webhook Error: ', error);
-    return res.status(400).send(`Webhook Error: ${error.message}`);
-  }
-
-  switch (event.type) {
-    case 'payment_intent.payment_failed':
-    case 'payment_intent.requires_action':
-      // const paymentIntentPaymentFailed = event.data.object;
-      // const paymentIntentRequiresAction = event.data.object;
-      logger.info('Got here: ', event.data);
-      break;
-    default:
-      logger.error('Unhandled event type', event.type);
-      console.log(`Unhandled event type ${event.type}`);
-  }
-
-  // Return a 200 response to acknowledge receipt of the event
-  return res.status(200).send('Suceeded');
-}
-
-export const getEstimatedTaxes = async (data, context) => {
-  if (!context.auth) {
-    logger.error("You must be authenticated to call this function.");
-    throw new functions.https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
-  }
-
-  logger.info("getEstimatedTaxes data: ", data);
-
-  const {
-    shippingRateInCents,
-    itemPriceInCents,
-    taxableAddress,
-    taxBehavior = 'exclusive',
-  } = data;
-
-  try {
-    const taxCalculation = await stripeSDK.tax.calculations.create({
-      currency: 'usd',
-      shipping_cost: {
-        amount: shippingRateInCents,
-      },
-      line_items: [
-        {
-          amount: itemPriceInCents,
-          quantity: 1,
-          reference: 'L1',
-          tax_behavior: taxBehavior,
-        },
-      ],
-      customer_details: {
-        address: {
-          line1: taxableAddress.street,
-          city: taxableAddress.city,
-          state: taxableAddress.state,
-          postal_code: taxableAddress.zip,
-          country: taxableAddress.country,
-        },
-        address_source: 'shipping',
-      },
-    });
-
-    logger.info('Success getting the tax calc', taxCalculation);
-
-    return {
-      taxCalculationId: taxCalculation?.id,
-      tax: parseFloat((taxCalculation?.tax_amount_exclusive / 100).toFixed(2))
-    };
-  } catch (error) {
-    logger.error('Error estimating taxes:', error.message);
-    return false;
-  }
-};

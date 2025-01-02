@@ -137,7 +137,6 @@ const syncFollowers = async (userId, user) => {
 };
 
 const syncReviews = async (userId, user) => {
-  console.log('h ih  i hi')
   const batch = admin.firestore().batch();
   const userDoc = admin.firestore().collection('users').doc(userId);
 
