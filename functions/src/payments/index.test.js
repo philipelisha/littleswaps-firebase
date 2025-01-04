@@ -1,6 +1,21 @@
-import { https, logger } from 'firebase-functions'
-import { addCardToPaymentIntent, confirmPaymentIntent, createLoginLink, createStripeAccount, getEstimatedTaxes, getLinkedAccounts, getStripeBalance } from './index'
-import admin from '../../adminConfig'
+import { logger } from 'firebase-functions'
+import {
+  addCardToPaymentIntent,
+  confirmPaymentIntent,
+  createLabel,
+  createStripeAccount,
+  createLoginLink,
+  createShipment,
+  getEstimatedTaxes,
+  getLinkedAccounts,
+  getStripeBalance,
+  validateAddress,
+  saveShippingLabel,
+  orderTrackingUpdate
+} from './index'
+import axios from 'axios';
+import { orderActions } from '../../order.config';
+import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus';
 
 const stripeMock = {
   paymentMethods: {
@@ -38,6 +53,7 @@ jest.mock("firebase-functions", () => {
     ...actualFunctions,
     logger: {
       info: jest.fn(),
+      warn: jest.fn(),
       error: jest.fn(),
     },
     https: {
@@ -46,6 +62,9 @@ jest.mock("firebase-functions", () => {
     },
   };
 });
+
+jest.mock('axios');
+jest.mock('../orders/onUpdateOrderStatus');
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -552,4 +571,381 @@ describe("getEstimatedTaxes", () => {
       'Error estimating taxes:', errorMessage.message
     );
   });
+});
+
+describe("createShipment", () => {
+  let shippoMock;
+  const data = {
+    accountId: 'acct_123',
+    toAddress: {
+      street: 'main street 1',
+      zip: 'zip 1'
+    },
+    fromAddress: {
+      street: 'main street 2',
+      zip: 'zip 2'
+    },
+    parcel: {},
+  };
+  beforeEach(() => {
+    shippoMock = {
+      shipments: {
+        create: jest.fn(),
+      },
+    };
+  });
+
+  it("should retrieve the shippment", async () => {
+
+    const context = { auth: { uid: 'someUserId' } };
+
+    const shippment = { test: 'test info' };
+    shippoMock.shipments.create.mockResolvedValueOnce(shippment);
+
+    const result = await createShipment(data, context, shippoMock);
+
+    expect(result).toBe(shippment);
+    expect(shippoMock.shipments.create).toHaveBeenCalledWith({
+      addressFrom: {
+        zip: 'zip 2',
+        street1: 'main street 2',
+        street: 'main street 2',
+      },
+      addressTo: {
+        zip: 'zip 1',
+        street1: 'main street 1',
+        street: 'main street 1',
+      },
+      parcels: [{}],
+      async: false,
+    });
+  });
+
+  it("should handle unauthenticated user", async () => {
+    const context = { auth: null };
+
+    await expect(createShipment(data, context, shippoMock)).rejects.toThrow(
+      "Authentication required."
+    );
+    expect(shippoMock.shipments.create).not.toHaveBeenCalled();
+  });
+
+  it("should handle error", async () => {
+    const context = { auth: { uid: 'someUserId' } };
+    jest.spyOn(logger, 'error').mockImplementation(() => { })
+    const error = new Error('error');
+    shippoMock.shipments.create.mockRejectedValue(error)
+
+    const result = await createShipment(data, context, shippoMock);
+
+    expect(result).toStrictEqual({
+      success: false,
+      message: error.message,
+      status: 'failed'
+    })
+    expect(shippoMock.shipments.create).toHaveBeenCalledWith({
+      addressFrom: {
+        zip: 'zip 2',
+        street1: 'main street 2',
+        street: 'main street 2',
+      },
+      addressTo: {
+        zip: 'zip 1',
+        street1: 'main street 1',
+        street: 'main street 1',
+      },
+      parcels: [{}],
+      async: false,
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify(error)
+    );
+  });
+});
+
+describe("createLabel", () => {
+  let shippoMock;
+  const data = {
+    rateId: 'rateid',
+    productId: 'productid'
+  };
+  beforeEach(() => {
+    shippoMock = {
+      transactions: {
+        create: jest.fn(),
+      },
+    };
+  });
+
+  it("should create the label", async () => {
+    const context = { auth: { uid: 'someUserId' } };
+
+    const transaction = { test: 'test info' };
+    shippoMock.transactions.create.mockResolvedValueOnce(transaction);
+
+    const result = await createLabel(data, context, shippoMock);
+
+    expect(result).toBe(transaction);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      shippingLabelCreating: true
+    })
+    expect(shippoMock.transactions.create).toHaveBeenCalledWith({
+      rate: 'rateid',
+      label_file_type: "PDF",
+      metadata: 'productid',
+      labelFileType: 'PNG'
+    });
+  });
+
+  it("should handle unauthenticated user", async () => {
+    const context = { auth: null };
+
+    await expect(createLabel(data, context, shippoMock)).rejects.toThrow(
+      "Authentication required."
+    );
+    expect(shippoMock.transactions.create).not.toHaveBeenCalled();
+  });
+
+  it("should handle error", async () => {
+    const context = { auth: { uid: 'someUserId' } };
+    jest.spyOn(logger, 'error').mockImplementation(() => { })
+    const error = new Error('error');
+    shippoMock.transactions.create.mockRejectedValue(error)
+
+    const result = await createLabel(data, context, shippoMock);
+
+    expect(result).toStrictEqual({
+      success: false,
+      message: error.message,
+      status: 'failed'
+    })
+    expect(shippoMock.transactions.create).toHaveBeenCalledWith({
+      rate: 'rateid',
+      label_file_type: "PDF",
+      metadata: 'productid',
+      labelFileType: 'PNG'
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      JSON.stringify(error)
+    );
+  });
+});
+
+describe('validateAddress', () => {
+  const shippoKey = 'test_shippo_key';
+
+  const context = { auth: { uid: '123' } };
+  const addressData = {
+    street: '123 Main St',
+    street2: 'Apt 4',
+    city: 'New York',
+    state: 'NY',
+    zip: '10001',
+    country: 'US',
+    name: 'John Doe',
+  };
+
+  const mockResponse = { is_valid: true };
+  it('should validate address successfully', async () => {
+    axios.get.mockResolvedValueOnce({ data: mockResponse });
+
+    const result = await validateAddress(addressData, context, shippoKey);
+
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.stringContaining('https://api.goshippo.com/v2/addresses/validate'),
+      expect.objectContaining({ headers: { Authorization: `ShippoToken ${shippoKey}` } })
+    );
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('should throw unauthenticated error if context.auth is missing', async () => {
+    const invalidContext = {};
+
+    await expect(validateAddress(addressData, invalidContext, shippoKey)).rejects.toThrow(
+      'Authentication required.'
+    );
+  });
+
+  it('should throw failed-precondition error if API key is missing', async () => {
+    await expect(validateAddress(addressData, context, null)).rejects.toThrow(
+      'Shippo API key not configured.'
+    );
+  });
+
+  it('should throw internal error if axios request fails', async () => {
+    axios.get.mockRejectedValueOnce(new Error('Network Error'));
+
+    await expect(validateAddress(addressData, context, shippoKey)).rejects.toThrow(
+      'Failed to validate address', 'Network Error'
+    );
+    expect(logger.error).toHaveBeenCalledWith(JSON.stringify('Network Error'));
+  });
+});
+
+describe('saveShippingLabel', () => {
+  const mockReq = {
+    body: {
+      data: {
+        label_url: 'https://example.com/label.pdf',
+        metadata: 'product123',
+        tracking_url_provider: 'https://track.example.com',
+        tracking_number: '1234567890',
+        status: 'SUCCESS',
+      },
+    },
+    query: {
+      token: 'valid_token',
+    },
+    headers: {},
+  };
+  const mockRes = {
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn(),
+    send: jest.fn(),
+  };
+  const envToken = 'valid_token';
+
+  it('should save shipping label successfully', async () => {
+    await saveShippingLabel(mockReq, mockRes, envToken);
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      shippingLabel: 'https://example.com/label.pdf',
+      shippingUrl: 'https://track.example.com',
+      shippingNumber: '1234567890',
+      shippingLabelCreating: false,
+    });
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      success: true,
+      message: 'Shipping label saved successfully.',
+    });
+  });
+
+
+  it('should return 401 if token is invalid', async () => {
+    mockReq.query.token = 'invalid_token';
+    await saveShippingLabel(mockReq, mockRes, envToken);
+
+    expect(logger.warn).toHaveBeenCalledWith('Invalid webhook token');
+    expect(mockRes.status).toHaveBeenCalledWith(401);
+    expect(mockRes.send).toHaveBeenCalledWith('Unauthorized');
+  });
+
+
+  it('should return 400 if product ID or label URL is missing', async () => {
+    mockReq.body.data.metadata = '';
+    mockReq.query.token = 'valid_token';
+    await saveShippingLabel(mockReq, mockRes, envToken);
+
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Missing product ID or label URL.',
+    });
+  });
+
+
+  it('should return 500 if firestore update fails', async () => {
+    mockReq.body.data.metadata = 'productid';
+    jest.spyOn(console, 'error').mockImplementation(() => ({}))
+    mockUpdate.mockRejectedValueOnce(new Error('Firestore Error'));
+
+    await saveShippingLabel(mockReq, mockRes, envToken);
+
+    expect(mockRes.status).toHaveBeenCalledWith(500);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Unable to save the label at this time, please try again.',
+    });
+  });
+});
+
+describe('orderTrackingUpdate', () => {
+  const mockReq = {
+    body: {
+      data: {
+        metadata: 'product123',
+        tracking_status: {
+          status: 'delivered',
+          substatus: 'delivered',
+        },
+      },
+      event: 'tracking_update',
+    },
+    query: {
+      token: 'valid_token',
+    },
+    headers: {},
+  };
+  const mockRes = {
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn(),
+    send: jest.fn(),
+  };
+  const envToken = 'valid_token';
+  let mockOnUpdateOrderStatus
+  beforeEach(async () => {
+    mockOnUpdateOrderStatus = jest.fn();
+    onUpdateOrderStatus.mockImplementation(() => ({onUpdateOrderStatus: mockOnUpdateOrderStatus}));
+  });
+
+  it('should process tracking update successfully', async () => {
+    await orderTrackingUpdate(mockReq, mockRes, envToken);
+
+    expect(onUpdateOrderStatus).toHaveBeenCalledWith({
+      type: orderActions.DELIVERED,
+      productId: 'product123',
+    });
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.send).toHaveBeenCalledWith('Webhook received and logged');
+  });
+
+  it('should return 401 if token is invalid', async () => {
+    mockReq.query.token = 'invalid_token';
+    await orderTrackingUpdate(mockReq, mockRes, envToken);
+
+    expect(logger.warn).toHaveBeenCalledWith('Invalid webhook token');
+    expect(mockRes.status).toHaveBeenCalledWith(401);
+    expect(mockRes.send).toHaveBeenCalledWith('Unauthorized');
+  });
+
+  it('should return 400 if product ID or tracking status is missing', async () => {
+    mockReq.body.data.metadata = '';
+    mockReq.query.token = 'valid_token';
+    await orderTrackingUpdate(mockReq, mockRes, envToken);
+
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Missing productId or tracking status.',
+    });
+  });
+
+  it('should return 400 for unmapped tracking status', async () => {
+    mockReq.body.data.metadata = 'productid';
+    mockReq.body.data.tracking_status.substatus = 'unknown_status';
+    await orderTrackingUpdate(mockReq, mockRes, envToken);
+
+    expect(mockRes.status).toHaveBeenCalledWith(402);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Unmapped tracking status received.',
+    });
+  });
+
+  // it('should return 500 if onUpdateOrderStatus fails', async () => {
+  //   // jest.spyOn(console, 'error').mockImplementation(() => ({}));
+  //   mockReq.body.data.metadata = 'productid';
+  //   mockReq.body.data.tracking_status = {
+  //     substatus: orderActions.SHIPPED,
+  //     status: orderActions.SHIPPED,
+  //   };
+
+  //   onUpdateOrderStatus.mockRejectedValueOnce(new Error('Order Status Error'));
+
+  //   await orderTrackingUpdate(mockReq, mockRes, envToken);
+
+  //   expect(mockRes.status).toHaveBeenCalledWith(500);
+  //   expect(mockRes.send).toHaveBeenCalledWith('Internal Server Error');
+  // });
 });

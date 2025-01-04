@@ -142,7 +142,6 @@ const syncReviews = async (userId, user) => {
 
   const promises = [];
 
-  // console.log('reviewsGivenSnapshot', reviewsGivenSnapshot)
   const reviewsGivenSnapshot = await userDoc.collection('reviewsGiven').get();
   reviewsGivenSnapshot.forEach((reviewDoc) => {
     const reviewData = reviewDoc.data();

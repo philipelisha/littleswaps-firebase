@@ -7,7 +7,8 @@ import axios from 'axios';
 import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
-const shippoKey = process.env.shippoKey
+const shippoKey = process.env.shippoKey;
+const envToken = process.env.token;
 const shippoSDK = new Shippo({ apiKeyHeader: shippoKey });
 
 export const addCardToPaymentIntent = async (data, context, stripe = stripeSDK) => {
@@ -250,13 +251,13 @@ export const getEstimatedTaxes = async (data, context, stripe = stripeSDK) => {
   }
 };
 
-export const failedPaymentIntent = async (req, res) => {
+export const failedPaymentIntent = async (req, res, stripe = stripeSDK) => {
   const sig = request.headers['stripe-signature'];
 
   let event;
 
   try {
-    event = stripeSDK.webhooks.constructEvent(req.body, sig, process.env.secret);
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.secret);
   } catch (error) {
     logger.error('Webhook Error: ', error);
     return res.status(400).send(`Webhook Error: ${error.message}`);
@@ -317,7 +318,6 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
 
   const { rateId, productId } = data;
 
-
   try {
     await admin.firestore().collection("products").doc(productId).update({
       shippingLabelCreating: true
@@ -341,7 +341,7 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
   }
 };
 
-export const validateAddress = async (data, context) => {
+export const validateAddress = async (data, context, key = shippoKey) => {
   logger.info("~~~~~~~~~~~~ START validateAddress ~~~~~~~~~~~~", data);
 
   if (!context.auth) {
@@ -350,7 +350,7 @@ export const validateAddress = async (data, context) => {
 
   const { street, street2, city, state, zip, country, name } = data;
 
-  if (!shippoKey) {
+  if (!key) {
     throw new https.HttpsError("failed-precondition", "Shippo API key not configured.");
   }
 
@@ -367,7 +367,7 @@ export const validateAddress = async (data, context) => {
   try {
     const response = await axios.get(url, {
       headers: {
-        Authorization: `ShippoToken ${shippoKey}`,
+        Authorization: `ShippoToken ${key}`,
       },
     });
 
@@ -385,7 +385,7 @@ export const validateAddress = async (data, context) => {
   }
 };
 
-export const saveShippingLabel = async (req, res) => {
+export const saveShippingLabel = async (req, res, token = envToken) => {
   try {
     logger.info('Received webhook request', {
       body: req.body,
@@ -394,21 +394,19 @@ export const saveShippingLabel = async (req, res) => {
       env: process.env.token
     });
 
-    const token = req.query['token'];
-    if (!token || token !== process.env.token) {
+    const requestToken = req.query['token'];
+    if (!requestToken || requestToken !== token) {
       logger.warn('Invalid webhook token');
       return res.status(401).send('Unauthorized');
     }
 
     const {
       label_url,
-      metadata,
+      metadata: productId,
       tracking_url_provider,
       tracking_number,
       status
     } = req.body.data;
-
-    const productId = metadata;
 
     if (!productId || !label_url || status !== 'SUCCESS') {
       return res.status(400).json({
@@ -443,7 +441,7 @@ export const saveShippingLabel = async (req, res) => {
   }
 };
 
-export const orderTrackingUpdate = async (req, res) => {
+export const orderTrackingUpdate = async (req, res, token = envToken) => {
   try {
     logger.info('Received webhook request', {
       body: req.body,
@@ -452,8 +450,8 @@ export const orderTrackingUpdate = async (req, res) => {
       env: process.env.token
     });
 
-    const token = req.query['token'];
-    if (!token || token !== process.env.token) {
+    const requestToken = req.query['token'];
+    if (!requestToken || requestToken !== token) {
       logger.warn('Invalid webhook token');
       return res.status(401).send('Unauthorized');
     }
@@ -478,7 +476,7 @@ export const orderTrackingUpdate = async (req, res) => {
     const orderAction = statusMapping[substatus || status];
     if (!orderAction) {
       logger.warn('Unmapped status received:', status);
-      return res.status(400).json({
+      return res.status(402).json({
         success: false,
         message: 'Unmapped tracking status received.',
       });

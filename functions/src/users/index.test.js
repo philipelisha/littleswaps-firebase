@@ -203,7 +203,9 @@ describe('User Functions', () => {
 
     const mockGet = jest.fn()
       .mockResolvedValueOnce(mockReviewGivenSnapshot)
-      .mockResolvedValueOnce(mockReviewSnapshot);
+      .mockResolvedValueOnce(mockReviewSnapshot)
+      .mockResolvedValueOnce(mockReviewSnapshot)
+      .mockResolvedValueOnce(mockReviewGivenSnapshot);
 
     jest.spyOn(admin.firestore().collection('users').doc(userId).collection(), 'get').mockImplementation(mockGet);
 
@@ -213,11 +215,11 @@ describe('User Functions', () => {
     //   buyerUserImage: 'new image',
     //   buyerUsername: 'username',
     // }));
-    // expect(mockBatchUpdate).toHaveBeenCalledWith(mockBuyerReviewRef, expect.objectContaining({
+    // expect(mockBatchUpdate).toHaveBeenCalledWith(mockReviewGivenSnapshot[0].ref, expect.objectContaining({
     //   sellerUserImage: 'new image',
     //   sellerUsername: 'username',
     // }));
 
-    // expect(mockBatchCommit).toHaveBeenCalled();
+    expect(mockBatchCommit).toHaveBeenCalled();
   });
 });

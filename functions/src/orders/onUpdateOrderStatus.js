@@ -1,21 +1,19 @@
 import admin from '../../adminConfig.js';
 import { https, logger } from 'firebase-functions';
+import stripe from "stripe";
 import { orderActions, statusTypes } from '../../order.config.js';
-import { sendNotificationToUser, emailTemplates, sendEmail } from '../utils/index.js';
-import { format } from 'date-fns';
+import { sendNotificationToUser } from '../utils/index.js';
+import { sendDeliveredEmails, sendShippedEmails } from './sendOrderUpdateEmails.js';
+
+const stripeSDK = stripe(process.env.stripeKey)
+const { productStatus } = statusTypes;
 
 const db = admin.firestore();
 const userRef = db.collection("users")
 const productRef = db.collection("products")
-const { productStatus } = statusTypes;
 
-const getUserDocAndData = async (id) => {
-  const doc = userRef.doc(id);
-  const docSnapshot = await doc.get();
-  return {
-    doc,
-    data: docSnapshot.data(),
-  };
+const getUserData = async (id) => {
+  return await userRef.doc(id).get();
 };
 
 const getUserStripeAccountId = async (userId) => {
@@ -44,13 +42,14 @@ const handleStripeTransfers = async ({
   paymentIntentId,
   purchasePriceDetails,
   seller,
+  stripe
 }) => {
-  const paymentIntent = await stripeSDK.paymentIntents.retrieve(paymentIntentId);
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
   const total = paymentIntent.amount_received;
 
   const { commission, shippingRate = 0, swapSpotCommission = 0 } = purchasePriceDetails;
   if (swapSpotId) {
-    await stripeSDK.transfers.create({
+    await stripe.transfers.create({
       amount: Math.round(swapSpotCommission),
       currency: 'usd',
       destination: await getUserStripeAccountId(swapSpotId),
@@ -58,7 +57,7 @@ const handleStripeTransfers = async ({
     });
   }
 
-  await stripeSDK.transfers.create({
+  await stripe.transfers.create({
     amount: Math.round(total - swapSpotCommission - commission - shippingRate),
     currency: 'usd',
     destination: await getUserStripeAccountId(seller),
@@ -84,13 +83,13 @@ const updateUserOrderStatus = async (userId, productId, status) => {
     title = order.title;
 
     await docSnapshot.ref.update({
-      status,
+      status: status,
       updated: new Date()
     });
   }
 
   return {
-    paymentIntent,
+    paymentIntentId: paymentIntent,
     title,
     order
   };
@@ -103,8 +102,9 @@ const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
   const inventorySnapshot = await swapSpotInventoryRef.where('product', '==', productId).get();
   if (!inventorySnapshot.empty) {
     const doc = inventorySnapshot.docs[0];
-    buyer = doc.data().buyer;
-    seller = doc.data().seller;
+    const data = doc.data()
+    buyer = data.buyer;
+    seller = data.seller;
     await doc.ref.update({
       status,
       updated: new Date()
@@ -126,6 +126,44 @@ const updateProductStatus = async (productId, status) => {
   return (await productDoc.get()).data();
 };
 
+const handleShippedEmails = async (product, order) => {
+  const [sellerResult, buyerResult, addressSnapShot] = await Promise.all([
+    userRef.doc(product.buyer).get(),
+    userRef.doc(product.user).get(),
+    userRef
+      .doc(product.buyer)
+      .collection('shippingAddress')
+      .doc(order.selectedAddress)
+      .get(),
+  ]);
+
+  const seller = sellerResult.data();
+  const buyer = buyerResult.data();
+  const address = addressSnapShot.data();
+
+  await sendShippedEmails({
+    buyer,
+    seller,
+    product,
+    order,
+    address,
+  })
+};
+
+const handleDeliveredEmails = async (product, order) => {
+  const [sellerResult, buyerResult] = await Promise.all([
+    await getUserData(product.user),
+    await getUserData(product.buyer),
+  ])
+
+  await sendDeliveredEmails({
+    product,
+    order,
+    seller: sellerResult.data(),
+    buyer: buyerResult.data(),
+  })
+};
+
 const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
   const status = productStatus.PENDING_SWAPSPOT_PICKUP;
   const { buyer } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
@@ -140,15 +178,18 @@ const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
   });
 };
 
-const handleSwapSpotFulfillment = async ({ swapSpotId, productId }) => {
+const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
   const status = productStatus.COMPLETED;
   const { buyer, seller } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
   const { paymentIntentId, title } = await updateUserOrderStatus(buyer, productId, status);
-  await updateProductStatus(productId, status);
+  const product = await updateProductStatus(productId, status);
+  const { purchasePriceDetails } = product;
   await handleStripeTransfers({
     swapSpotId,
     paymentIntentId,
+    purchasePriceDetails,
     seller,
+    stripe
   });
   await sendNotificationToUser({
     userId: seller,
@@ -191,7 +232,7 @@ const handleShipped = async ({ productId }) => {
     }
   });
 
-  sendShippedEmails(product, order);
+  handleShippedEmails(product, order);
 };
 
 const handleOutForDelivery = async ({ productId }) => {
@@ -207,15 +248,17 @@ const handleOutForDelivery = async ({ productId }) => {
   });
 };
 
-const handleDelivered = async ({ productId }) => {
+const handleDelivered = async ({ productId, stripe }) => {
   const status = productStatus.COMPLETED;
   const product = await updateProductStatus(productId, status);
   const { purchasePriceDetails } = product;
   const { paymentIntentId, order } = await updateUserOrderStatus(product.buyer, productId, status);
+
   await handleStripeTransfers({
     paymentIntentId,
     purchasePriceDetails,
     seller: product.user,
+    stripe
   });
   await sendNotificationToUser({
     userId: product.user,
@@ -229,132 +272,20 @@ const handleDelivered = async ({ productId }) => {
       title: product.title
     }
   });
-  await sendNotificationToUser({
-    userId: product.buyer,
-    type: 'buyer_' + status,
-    args: {
-      title: product.title
-    }
-  });
 
-  await sendDeliveredEmails(product, order);
+  await handleDeliveredEmails(product, order);
 };
 
 const actionHandlers = {
-  [orderActions.SWAPSPOT_RECEIVING]: handleSwapSpotReceiving,
+  [orderActions.SWAPSPOT_RECEIVING]: handleSwapSpotReceiving, //done
   [orderActions.SWAPSPOT_FULFILLMENT]: handleSwapSpotFulfillment,
-  [orderActions.LABEL_CREATED]: handleLabelCreated,
-  [orderActions.SHIPPED]: handleShipped,
-  [orderActions.OUT_FOR_DELIVERY]: handleOutForDelivery,
-  [orderActions.DELIVERED]: handleDelivered,
+  [orderActions.LABEL_CREATED]: handleLabelCreated, //done
+  [orderActions.SHIPPED]: handleShipped, //done
+  [orderActions.OUT_FOR_DELIVERY]: handleOutForDelivery, //done
+  [orderActions.DELIVERED]: handleDelivered, //done
 };
 
-const sendShippedEmails = async (product, order) => {
-  const { data: seller } = await getUserDocAndData(product.user);
-  const { doc: buyerDoc, data: buyer } = await getUserDocAndData(product.buyer);
-  const addressSnapShot = await buyerDoc
-    .collection('shippingAddress')
-    .doc(order.selectedAddress)
-    .get();
-  const address = addressSnapShot.data();
-
-  await sendEmail({
-    email: seller.email,
-    templateId: emailTemplates.SELLER_SHIPPED,
-    data: {
-      name: seller.firstName + ' ' + seller.lastName,
-      product: [
-        {
-          name: product.title,
-          tracking: product.shippingNumber,
-          order_number: order.product.slice(0, 6),
-          delivery_method: order.shippingCarrier
-        }
-      ],
-      firstName: seller.firstName
-    }
-  })
-  await sendEmail({
-    email: buyer.email,
-    templateId: emailTemplates.BUYER_SHIPPED,
-    data: {
-      name: buyer.firstName + ' ' + buyer.lastName,
-      order: {
-        total: order.purchasePriceDetails.total,
-        subtotal: product.price,
-        order_number: order.id.slice(0, 6),
-        shipping_day: format(new Date(), 'MM/dd/yyyy'),
-        delivery_method: order.shippingCarrier,
-        tracking_number: product.shippingNumber,
-        delivery_method_fee: order.purchasePriceDetails.shippingRate
-      },
-      product: [
-        {
-          name: product.title,
-          size: product.size,
-          color: product.colors.join(', '),
-          price: product.price
-        }
-      ],
-      customer: {
-        name: address.name,
-        address_1st_line: `${address.street} ${address.street2}`,
-        address_2nd_line: `${address.city}, ${address.state} ${address.zip}`
-      },
-      firstName: buyer.firstName
-    }
-  })
-};
-
-const sendDeliveredEmails = async (product, order) => {
-  const { data: seller } = await getUserDocAndData(product.user);
-  const { data: buyer } = await getUserDocAndData(product.buyer);
-
-  const today = format(new Date(), 'MM/dd/yyyy');
-  await sendEmail({
-    email: seller.email,
-    templateId: emailTemplates.SELLER_DELIVERED,
-    data: {
-      name: seller.firstName + ' ' + seller.lastName,
-      product: [
-        {
-          name: product.title,
-          arrival_date: today,
-          order_number: order.product.slice(0, 6)
-        }
-      ],
-      firstName: seller.firstName
-    }
-  })
-  await sendEmail({
-    email: seller.email,
-    templateId: emailTemplates.SELLER_PAYMENT,
-    data: {
-      name: seller.firstName + ' ' + seller.lastName,
-      product: [
-        {
-          name: product.title,
-          earned: product.price,
-          arrival_date: today,
-          order_number: order.product.slice(0, 6)
-        }
-      ],
-      firstName: seller.firstName
-    }
-  })
-  await sendEmail({
-    email: buyer.email,
-    templateId: emailTemplates.BUYER_DELIVERED,
-    data: {
-      name: buyer.firstName + ' ' + buyer.lastName,
-      product: product.title,
-      order_number: order.id.slice(0, 6),
-      delivery_method: order.shippingCarrier,
-    }
-  })
-};
-
-export const onUpdateOrderStatus = async ({ type, swapSpotId, productId }) => {
+export const onUpdateOrderStatus = async ({ type, swapSpotId, productId, stripe = stripeSDK }) => {
   try {
     logger.info('Order status start updating', {
       type,
@@ -368,12 +299,13 @@ export const onUpdateOrderStatus = async ({ type, swapSpotId, productId }) => {
       throw new https.HttpsError('invalid-argument', 'Invalid order action type.');
     }
 
-    await handler({ swapSpotId, productId });
+    await handler({ swapSpotId, productId, stripe });
 
     logger.info('Order status updated successfully.');
     return true
 
   } catch (error) {
+    console.log('error', error.message)
     logger.error(JSON.stringify(error.message));
     return false
   }
