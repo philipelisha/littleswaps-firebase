@@ -11,7 +11,8 @@
     "logs": "cd functions && npm run logs",
     "test": "cd functions && npm run test",
     "test:watch": "cd functions && npm run test:watch",
-    "test:coverage": "cd functions && npm run test:coverage"
+    "test:coverage": "cd functions && npm run test:coverage",
+    "emulators:start": "firebase emulators:start"
   },
   "private": true
 }
