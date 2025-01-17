@@ -187,3 +187,4 @@ const syncReviews = async (userId, user) => {
   await batch.commit();
 };
 
+export { deleteUser } from './deleteUser.js';

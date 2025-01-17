@@ -15,6 +15,7 @@ import * as orders from './src/orders/index.js';
 // firestore
 export const createUser = onDocumentCreated('/users/{userId}', users.createUser);
 export const updateUser = onDocumentUpdated('/users/{userId}', users.updateUser);
+export const deleteUser = https.onCall(users.deleteUser);
 export const createReview = onDocumentCreated('/users/{userId}/reviews/{reviewId}', reviews.createReview);
 export const createOrder = onDocumentCreated('/users/{userId}/orders/{orderId}', orders.createOrder);
 export const createProduct = onDocumentCreated('/products/{productId}', products.createProduct);

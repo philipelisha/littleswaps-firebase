@@ -12,7 +12,11 @@
     "test": "cd functions && npm run test",
     "test:watch": "cd functions && npm run test:watch",
     "test:coverage": "cd functions && npm run test:coverage",
-    "emulators:start": "firebase emulators:start"
+    "emulators:start": "npm run emulators:stop & sh startEmulators.sh",
+    "emulators:stop": "sudo kill -9 $(lsof -ti :8080) && sudo kill -9 $(lsof -ti :9099) && sudo kill -9 $(lsof -ti :5001) && sudo kill -9 $(lsof -ti :9199) && sudo kill -9 $(lsof -ti :4500) && sudo kill -9 $(lsof -ti :9150) && sudo kill -9 $(lsof -ti :4400)"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "firebase-admin": "^13.0.2"
+  }
 }

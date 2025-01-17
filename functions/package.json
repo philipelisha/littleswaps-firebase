@@ -8,8 +8,8 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "logs": "firebase functions:log",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "jest --config './jest.config.js'",
+    "test:watch": "jest --config './jest.config.js' --watch",
     "test:coverage": "jest --config './jest.config.js' --coverage && open coverage/lcov-report/index.html"
   },
   "engines": {
