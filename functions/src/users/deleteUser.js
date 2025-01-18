@@ -70,7 +70,6 @@ const deleteProducts = async (db, batch, userId) => {
   productsSnapshot.forEach(async (doc) => {
     const productData = doc.data();
     if (!productData.purchaseDate) {
-      await deleteSubcollections(doc.ref, batch);
       batch.delete(doc.ref);
     }
   });

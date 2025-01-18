@@ -161,9 +161,20 @@ export const updateProduct = async (event) => {
 };
 
 export const deleteProduct = async (event) => {
-  // TODO: should remove any reviews of this product
+  // use a batch for all of these.
+  // Get the product from firebase using productId. 
+  // current user is product.user productUniqueKey is product.key
+  // TODO: should remove any images of this product
+    // `images/products/${currentUser.id}/${productUniqueKey}/
+
   // TODO: should remove any likes of this product
-  // TODO: should remove any product ids from the users that have left comments
+  //look through like collection and get all likes with like.product = productId and delete them. 
+
+  // TODO: should remove any product ids from the users (user.comments) that have left comments
+// gets subcollection comments then update the user from users collection using the id comment.user
+// updates the user.comments to remove it from the array. Currently it is added like this: firestore.FieldValue.arrayUnion(productId)
+
+  // TODO: (should remove any reviews of this product) - not doing this because you should not be able to delete sold products
   const productId = event.params.productId;
   let db;
   try {
