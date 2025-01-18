@@ -109,7 +109,7 @@ async function seedDatabase() {
     }];
     for (const user of users) {
       const userRef = await db.collection('users').doc(user.id).set(user);
-      await db.collection('usernames').doc(user.username).set({ user: userRef.id });
+      await db.collection('usernames').doc(user.username).set({ user: user.id });
     }
     console.log('Users and usernames seeded.');
 

@@ -16,15 +16,15 @@ export const deleteUser = async (data, context) => {
   try {
     logger.info('userId', userId);
 
-    await deleteProfileImage(userId); // DONE
-    await deleteUsername(db, userId, batch); // DONE
-    await deleteProducts(db, batch, userId); // DONE
-    await deleteComments(db, batch, userId); // DONE
-    await deleteLikes(db, batch, userId); // DONE
-    await deleteFollowersAndFollowings(db, batch, userId); // DONE
+    await deleteProfileImage(userId);
+    await deleteUsername(db, userId, batch);
+    await deleteProducts(db, batch, userId);
+    await deleteComments(db, batch, userId);
+    await deleteLikes(db, batch, userId);
+    await deleteFollowersAndFollowings(db, batch, userId);
     await deleteReviews(db, batch, userId);
-    await deleteUserDocument(db, userId, batch); // DONE
-    await deleteUserAuthProfile(userId); // DONE
+    await deleteUserDocument(db, userId, batch);
+    await deleteUserAuthProfile(userId);
 
     // Commit all batched deletions
     await batch.commit();
@@ -93,7 +93,9 @@ const deleteComments = async (db, batch, userId) => {
 };
 
 const deleteLikes = async (db, batch, userId) => {
-  const likesSnapshot = await db.collection("likes").where("user", "==", userId).get();
+  const likesSnapshot = await db.collection("likes")
+    .where("user", "==", userId)
+    .get();
   likesSnapshot.forEach((likeDoc) => {
     batch.delete(likeDoc.ref);
   });
@@ -160,8 +162,8 @@ const deleteReviews = async (db, batch, userId) => {
 
 const deleteUserDocument = async (db, userId, batch) => {
   const userDoc = await db.collection("users")
-  .doc(userId)
-  .get();
+    .doc(userId)
+    .get();
 
   await deleteSubcollections(userDoc.ref, batch);
 
