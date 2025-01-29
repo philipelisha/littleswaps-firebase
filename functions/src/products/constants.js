@@ -57,40 +57,60 @@ export const searchQuery = ({
   isCurrentUser,
   sortBy,
   sortDirection,
-  offset
-}) => `
-  SELECT *, COUNT(*) OVER() AS total_count 
-  FROM products
-  WHERE
-    (${isCurrentUser} OR active = true) 
-    AND (
-      $1 IS NULL OR
-      title ILIKE $1 OR
-      brand ILIKE $1 OR
-      maincategory ILIKE $1 OR
-      subcategory ILIKE $1
-    )
-    AND ($2 IS NULL OR maincategory = $2)
-    AND ($3 IS NULL OR subcategory = $3)
-    AND ($4 IS NULL OR brand = $4)
-    AND ($5 IS NULL OR $5 = ANY(colors))
-    AND ($6 IS NULL OR size = $6)
-    AND (
-      ($7 IS NULL AND $8 IS NULL) OR
-      (price BETWEEN $7 AND $8)
-    )
-    AND ($9 IS NULL OR availableShipping = $9)
-    AND ($10 IS NULL OR condition = $10)
-    AND ($11 IS NULL OR userid ${isProfile ? '=' : '!='} $11)
-    AND (
-      $12 IS NULL OR
-      ST_DWithin(
-        ST_MakePoint(longitude, latitude)::geography,
-        ST_MakePoint($12, $13)::geography,
-        $14
+  offset,
+  isMainCategoryArray,
+  isSubCategoryArray,
+  isBrandArray,
+}) => {
+  const baseQuery = `
+    SELECT *, COUNT(*) OVER() AS total_count 
+    FROM products
+    WHERE
+      (${isCurrentUser} OR active = true)
+      AND (
+        $1 IS NULL OR
+        title ILIKE $1 OR
+        brand ILIKE $1 OR
+        maincategory ILIKE $1 OR
+        subcategory ILIKE $1
       )
-    )
-  ORDER BY
-    ${isCurrentUser ? 'active DESC,' : ''} ${sortBy} ${sortDirection}
-  LIMIT 10 OFFSET ${offset};
-`;
+      AND ($5 IS NULL OR $5 = ANY(colors))
+      AND ($6 IS NULL OR size = $6)
+      AND (
+        ($7 IS NULL AND $8 IS NULL) OR
+        (price BETWEEN $7 AND $8)
+      )
+      AND ($9 IS NULL OR availableShipping = $9)
+      AND ($10 IS NULL OR condition = $10)
+      AND ($11 IS NULL OR userid ${isProfile ? '=' : '!='} $11)
+      AND (
+        $12 IS NULL OR
+        ST_DWithin(
+          ST_MakePoint(longitude, latitude)::geography,
+          ST_MakePoint($12, $13)::geography,
+          $14
+        )
+      )
+  `;
+
+  const mainCategoryCondition = isMainCategoryArray
+    ? `AND ($2 IS NULL OR maincategory = ANY($2))`
+    : `AND ($2 IS NULL OR maincategory = $2)`;
+
+  const subCategoryCondition = isSubCategoryArray
+    ? `AND ($3 IS NULL OR subcategory = ANY($3))`
+    : `AND ($3 IS NULL OR subcategory = $3)`;
+
+  const brandCondition = isBrandArray
+    ? `AND ($4 IS NULL OR brand = ANY($4))`
+    : `AND ($4 IS NULL OR brand = $4)`;
+
+  return `
+    ${baseQuery}
+    ${mainCategoryCondition}
+    ${subCategoryCondition}
+    ${brandCondition}
+    ORDER BY ${isCurrentUser ? 'active DESC,' : ''} ${sortBy} ${sortDirection}
+    LIMIT 10 OFFSET ${offset};
+  `;
+};

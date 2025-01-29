@@ -53,24 +53,112 @@ describe('deleteUser', () => {
     },
   };
 
-  beforeEach(async () => {
+  /* beforeEach(async () => {
     mockGet.mockResolvedValueOnce([{
       ref: 'username ref'
     }])
+
+    mockGet.mockResolvedValueOnce({
+      docs: [
+        {
+          ref: 'product ref',
+          data: () => ({
+            purchaseDate: 'purchase date'
+          })
+        },
+        {
+          ref: {
+            collection: jest.fn().mockReturnThis(),
+            test: 'product ref',
+            listCollections: jest.fn().mockResolvedValue([])
+          },
+          data: () => ({
+            sellerId: 'testSellerId2',
+            productId: 'testProductId2',
+          })
+        }]
+    });
+
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        comments: ['product id 1']
+      }),
+    });
+
     mockGet.mockResolvedValueOnce([{
-      ref: 'product ref',
-      data: () => ({
-        purchaseDate: 'purchase date'
-      })
-    },
-    {
+      ref: 'comment ref'
+    }]);
+    mockGet.mockResolvedValueOnce([{
+      ref: 'like ref'
+    }]);
+    mockGet.mockResolvedValueOnce([{
+      ref: 'follower ref'
+    }]);
+    mockGet.mockResolvedValueOnce([{
+      ref: 'following ref'
+    }]);
+
+    // Mock reviews
+    mockGet.mockResolvedValueOnce([{
+      data: () => ({}),
+    }]);
+    mockGet.mockResolvedValueOnce([{
+      ref: 'seller review ref'
+    }]);
+    mockGet.mockResolvedValueOnce([{
+      data: () => ({}),
+    }]);
+    mockGet.mockResolvedValueOnce([{
+      ref: 'buyer review ref'
+    }]);
+
+    // Mock user's subcollections
+    mockGet.mockResolvedValueOnce({
+      exists: true,
       ref: {
-        test: 'product ref',
-        listCollections: jest.fn().mockResolvedValue([])
+        test: 'user ref',
+        listCollections: jest.fn().mockResolvedValue([{
+          get: jest.fn().mockResolvedValue([{
+            ref: 'sub collection ref'
+          }]),
+        }]),
       },
+    });
+
+    // Mock additional product-related references for deleteProductReferences
+    mockGet.mockResolvedValueOnce([{
+      ref: 'product-related ref',
       data: () => ({
-      })
+        relatedDataField: 'dummyValue',
+      }),
+    }]);
+
+    mockGet.mockResolvedValueOnce([]);
+  }); */
+
+  beforeEach(async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    mockGet.mockResolvedValueOnce([{
+      ref: 'username ref'
     }])
+    mockGet.mockResolvedValueOnce({
+      docs: [{
+        ref: 'product ref',
+        data: () => ({
+          purchaseDate: 'purchase date'
+        })
+      },
+      {
+        ref: {
+          collection: jest.fn().mockReturnThis(),
+          test: 'product ref',
+          listCollections: jest.fn().mockResolvedValue([])
+        },
+        data: () => ({
+        })
+      }]
+    })
     mockGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -169,7 +257,8 @@ describe('deleteUser', () => {
 
     expect(mockBatchDelete).toHaveBeenCalledWith({
       test: 'product ref',
-      listCollections: expect.any(Function)
+      listCollections: expect.any(Function),
+      collection: expect.any(Function),
     })
   });
 
@@ -246,7 +335,7 @@ describe('deleteUser', () => {
     const data = {};
     jest.spyOn(console, 'error').mockImplementation(() => { })
     mockBatchCommit.mockRejectedValue(new Error('error'))
-    
+
     await expect(deleteUser(data, context)).rejects.toThrow(
       "An error occurred while deleting the account. Please try again."
     );

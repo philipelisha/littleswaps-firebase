@@ -1,6 +1,7 @@
 // const adminConfig = require('../adminConfig.js');
 // import adminConfig from '../adminConfig.js';
 const admin = require('firebase-admin');
+const { importedUsers } = require('./seedData/users');
 
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
@@ -48,67 +49,46 @@ async function seedDatabase() {
     for (const category of categories) {
       await db.collection('categories').add(category);
     }
-    console.log('Categories seeded.');
 
+    // Seed Trending Brands
+    const trendingBrands = [
+      {
+        name: 'LEGO',
+        image: 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fbrands%2Flego.jpg?alt=media&token=f143823d-c517-4bf6-8c0e-6c1697d00f87',
+      },
+      {
+        name: 'Graco',
+        image: 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fbrands%2Fgraco.jpg?alt=media&token=7ecc9c37-5725-48c3-8405-689e1217d80c',
+      },
+      {
+        name: 'Janie and Jack',
+        image: 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fbrands%2Fjanie-and-jack.jpg?alt=media&token=4b7fbb41-62f5-4de1-8d07-0b5c8ef0928d',
+      },
+    ];
+    for (const brand of trendingBrands) {
+      await db.collection('trendingbrands').add(brand);
+    }
+    console.log('Trending brands seeded.');
 
-    const user1 = {
-      appIdentifier: 'com.littleswaps',
-      badgeCount: 0,
-      createdAt: 1737139817,
-      email: 'philipleesha@gmail.com',
-      firstName: 'Philip',
-      lastName: 'Leesha',
-      lastOnlineTimestamp: 1737139820,
-      location: '',
-      parentInfo: { isParent: 'NO_ANSWER' },
-      phone: '',
-      profileImage: 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media',
-      pushKitToken: '',
-      pushToken: 'e-Uqs7TvWUCcijLM5Ghyh2:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8E',
-      signUpLocation: '',
-      username: 'philip',
-    };
-    const user2 = {
-      appIdentifier: 'com.littleswaps',
-      badgeCount: 0,
-      createdAt: 1737139818,
-      email: 'philipleesha1@gmail.com',
-      firstName: 'Philip1',
-      lastName: 'Leesha1',
-      lastOnlineTimestamp: 1737139821,
-      location: '',
-      parentInfo: { isParent: 'NO_ANSWER' },
-      phone: '',
-      profileImage: 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media',
-      pushKitToken: '',
-      pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
-      signUpLocation: '',
-      username: 'philip1',
-    };
-    const authUser1 = await auth.createUser({
-      email: user1.email,
-      password: '12345678f',
-      displayName: `${user1.firstName} ${user1.lastName}`,
-    });
-    const authUser2 = await auth.createUser({
-      email: user2.email,
-      password: '12345678f',
-      displayName: `${user2.firstName} ${user2.lastName}`,
-    });
-    const fetchedUser1 = await admin.auth().getUserByEmail(user1.email);
-    uid1 = fetchedUser1.uid;
-    const fetchedUser2 = await admin.auth().getUserByEmail(user2.email);
-    uid2 = fetchedUser2.uid;
-    // Seed Users
-    const users = [{
-      ...user1,
-      id: uid1
-    }, {
-      ...user2,
-      id: uid2
-    }];
+    const users = [];
+    for (const user of importedUsers) {
+      await auth.createUser({
+        email: user.email,
+        password: '12345678f', 
+        displayName: `${user.firstName} ${user.lastName}`,
+      });
+
+      const fetchedUser = await admin.auth().getUserByEmail(user.email);
+      const uid = fetchedUser.uid;
+
+      users.push({
+        ...user,
+        id: uid,
+      });
+    }
+
     for (const user of users) {
-      const userRef = await db.collection('users').doc(user.id).set(user);
+      await db.collection('users').doc(user.id).set(user);
       await db.collection('usernames').doc(user.username).set({ user: user.id });
     }
     console.log('Users and usernames seeded.');

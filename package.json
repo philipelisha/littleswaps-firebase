@@ -12,8 +12,8 @@
     "test": "jest --config 'functions/jest.config.js'",
     "test:watch": "cd functions && npm run test:watch",
     "test:coverage": "cd functions && npm run test:coverage",
-    "emulators:start": "npm run emulators:stop & sh startEmulators.sh",
-    "emulators:stop": "sudo kill -9 $(lsof -ti :8080) && sudo kill -9 $(lsof -ti :9099) && sudo kill -9 $(lsof -ti :5001) && sudo kill -9 $(lsof -ti :9199) && sudo kill -9 $(lsof -ti :4500) && sudo kill -9 $(lsof -ti :9150) && sudo kill -9 $(lsof -ti :4400)"
+    "emulators:start": "npm run emulators:stop && sh startEmulators.sh",
+    "emulators:stop": "npx kill-port 8080 9099 5001 9199 4500 9150 4400 4000 4010 4011"
   },
   "private": true,
   "devDependencies": {

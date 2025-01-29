@@ -10,6 +10,7 @@ import {
 import { sendNotificationToUser } from "../utils/index.js";
 import { statusTypes } from "../../order.config.js";
 import { updateUsersListingCounts } from "./updateUsersListingCounts.js";
+import { updateProductSnippet } from "./updateProductSnippet.js";
 
 const { productStatus } = statusTypes;
 
@@ -65,6 +66,7 @@ export const createProduct = async (event) => {
       isActive: data.active,
       isSold: false,
     });
+    updateProductSnippet(data.user);
 
     db = connectToPostgres();
 
@@ -117,11 +119,28 @@ export const updateProduct = async (event) => {
       .get();
     const data = productDoc.data();
 
+    if (beforeData.title !== afterData.title) {
+      const likeSnapShot = await admin
+        .firestore()
+        .collection("likes")
+        .where('product', '==', productId)
+        .get();
+
+      const batch = admin.firestore().batch();
+      likeSnapShot.forEach((doc) => {
+        const likeRef = doc.ref;
+        batch.update(likeRef, { title: afterData.title });
+      });
+
+      await batch.commit();
+    }
+
     updateUsersListingCounts(data.user, {
       isActive: data.active,
       updatingActive: beforeData.active !== afterData.active,
       isSold: Boolean(!beforeData.purchaseDate && afterData.purchaseDate),
     });
+    updateProductSnippet(data.user);
 
     if (data.status === productStatus.PENDING_SHIPPING || data.status === productStatus.PENDING_SWAPSPOT_ARRIVAL) {
       sendNotifications(data);
@@ -161,21 +180,8 @@ export const updateProduct = async (event) => {
 };
 
 export const deleteProduct = async (event) => {
-  // use a batch for all of these.
-  // Get the product from firebase using productId. 
-  // current user is product.user productUniqueKey is product.key
-  // TODO: should remove any images of this product
-    // `images/products/${currentUser.id}/${productUniqueKey}/
-
-  // TODO: should remove any likes of this product
-  //look through like collection and get all likes with like.product = productId and delete them. 
-
-  // TODO: should remove any product ids from the users (user.comments) that have left comments
-// gets subcollection comments then update the user from users collection using the id comment.user
-// updates the user.comments to remove it from the array. Currently it is added like this: firestore.FieldValue.arrayUnion(productId)
-
-  // TODO: (should remove any reviews of this product) - not doing this because you should not be able to delete sold products
   const productId = event.params.productId;
+
   let db;
   try {
     db = connectToPostgres();
@@ -222,6 +228,9 @@ export const searchProducts = async (data, context) => {
       sortBy = 'updated',
       sortDirection = 'DESC',
       offset = 0,
+      isMainCategoryArray = false,
+      isSubCategoryArray = false,
+      isBrandArray = false,
     } = data;
     // console.log('data', data);
 
@@ -234,6 +243,9 @@ export const searchProducts = async (data, context) => {
         sortBy,
         sortDirection,
         offset,
+        isMainCategoryArray,
+        isSubCategoryArray,
+        isBrandArray,
       }),
       [
         textFilter ? `%${textFilter}%` : null,

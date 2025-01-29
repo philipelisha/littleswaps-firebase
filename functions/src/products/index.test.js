@@ -1,5 +1,4 @@
 import { logger, https } from "firebase-functions";
-import admin from '../../adminConfig';
 import {
   createProduct,
   updateProduct,
@@ -7,6 +6,7 @@ import {
   searchProducts,
   onShare
 } from './index';
+import admin from '../../adminConfig.js';
 import { connectToPostgres } from './connectToPostgres';
 import { sendNotificationToUser } from "../utils/index.js";
 import { updateUsersListingCounts } from "./updateUsersListingCounts.js";
@@ -39,19 +39,6 @@ expect.extend({
   },
 });
 
-let mockData = () => ({});
-jest.mock('../../adminConfig', () => ({
-  firestore: () => ({
-    collection: () => ({
-      doc: jest.fn((userId) => ({
-        get: jest.fn(() => ({
-          data: mockData
-        })),
-      })),
-    }),
-  }),
-}));
-
 jest.mock('./connectToPostgres', () => {
   const pgMock = {
     none: jest.fn(),
@@ -83,6 +70,15 @@ jest.mock('../utils/index.js', () => ({
   sendNotificationToUser: jest.fn()
 }))
 
+jest.mock('../../adminConfig.js');
+const mockGet = jest.fn();
+admin.firestore = jest.fn().mockReturnValue({
+  collection: jest.fn().mockReturnThis(),
+  doc: jest.fn().mockReturnThis(),
+  get: mockGet,
+  where: jest.fn().mockReturnThis(),
+});
+
 describe('Products Functions', () => {
   let productData;
   describe('when status is pending shipping', () => {
@@ -109,7 +105,10 @@ describe('Products Functions', () => {
         longitude: 50,
         status: 'PENDING_SHIPPING'
       };
-      mockData = () => productData;
+      mockGet.mockResolvedValueOnce({
+        data: () => productData
+      })
+      // mockData = () => productData;
     });
 
     it('should add a product to PostgreSQL', async () => {
@@ -253,7 +252,9 @@ describe('Products Functions', () => {
         longitude: 50,
         status: 'PENDING_SWAPSPOT_ARRIVAL'
       };
-      mockData = () => productData;
+      mockGet.mockResolvedValueOnce({
+        data: () => productData
+      })
     });
 
     it('should update a product to PostgreSQL', async () => {
@@ -327,17 +328,6 @@ describe('Products Functions', () => {
         ]),
       );
     });
-  });
-
-  it('should delete a product from PostgreSQL', async () => {
-    const db = connectToPostgres();
-    const productId = 'default-product-id'
-    deleteProduct({ params: { productId: productId } })
-
-    expect(db.none).toHaveBeenCalledWith(
-      'DELETE FROM products WHERE firestoreid = $1',
-      expect.arrayContaining([productId]),
-    );
   });
 
   it('should search for products in PostgreSQL not from profile', async () => {
@@ -702,5 +692,17 @@ describe('Products Functions', () => {
       );
     });
   });
-
+  
+  describe('deleteProduct', () => {  
+    it('should delete a product from PostgreSQL', async () => {
+      const db = connectToPostgres();
+      const productId = 'default-product-id'
+      deleteProduct({ params: { productId: productId } })
+  
+      expect(db.none).toHaveBeenCalledWith(
+        'DELETE FROM products WHERE firestoreid = $1',
+        expect.arrayContaining([productId]),
+      );
+    });
+  });
 });

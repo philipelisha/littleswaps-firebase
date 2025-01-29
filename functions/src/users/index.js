@@ -60,7 +60,9 @@ const handleEmailAddition = async (beforeData, afterData) => {
 const handleUserValueUpdates = async ({ beforeData, afterData, userId }) => {
   if (
     beforeData.profileImage !== afterData.profileImage ||
-    beforeData.username !== afterData.username
+    beforeData.username !== afterData.username ||
+    beforeData.firstName !== afterData.firstName ||
+    beforeData.lastName !== afterData.lastName
   ) {
     await syncComments(afterData);
     await syncLikes(userId, afterData);
@@ -104,6 +106,8 @@ const syncLikes = async (userId, user) => {
       batch.update(likeDoc.ref, {
         userImage: user.profileImage || defaultProfileImage,
         username: user.username || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
       });
     });
 
@@ -120,6 +124,8 @@ const syncFollowers = async (userId, user) => {
     batch.update(doc.ref, {
       followerImage: user.profileImage || defaultProfileImage,
       followerName: user.username || '',
+      followerFirstName: user.firstName || '',
+      followerLastName: user.lastName || '',
     });
   });
 
@@ -128,6 +134,8 @@ const syncFollowers = async (userId, user) => {
     batch.update(doc.ref, {
       userImage: user.profileImage || defaultProfileImage,
       username: user.username || '',
+      userFirstName: user.firstName || '',
+      userLastName: user.lastName || '',
     });
   });
 
