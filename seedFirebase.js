@@ -1,7 +1,7 @@
 // const adminConfig = require('../adminConfig.js');
 // import adminConfig from '../adminConfig.js';
 const admin = require('firebase-admin');
-const { importedUsers } = require('./seedData/users');
+const importedUsers = require('./seedData/users');
 
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 

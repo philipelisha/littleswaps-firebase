@@ -439,9 +439,6 @@ describe('Products Functions', () => {
       'maincategory ILIKE $1 OR',
       'subcategory ILIKE $1',
       ')',
-      'AND ($2 IS NULL OR maincategory = $2)',
-      'AND ($3 IS NULL OR subcategory = $3)',
-      'AND ($4 IS NULL OR brand = $4)',
       'AND ($5 IS NULL OR $5 = ANY(colors))',
       'AND ($6 IS NULL OR size = $6)',
       'AND (',
@@ -459,6 +456,9 @@ describe('Products Functions', () => {
       '$14',
       ')',
       ')',
+      'AND ($2 IS NULL OR maincategory = $2)',
+      'AND ($3 IS NULL OR subcategory = $3)',
+      'AND ($4 IS NULL OR brand = $4)',
       'ORDER BY',
       'updated DESC',
       'LIMIT 10 OFFSET 0',
@@ -516,9 +516,6 @@ describe('Products Functions', () => {
       'maincategory ILIKE $1 OR',
       'subcategory ILIKE $1',
       ')',
-      'AND ($2 IS NULL OR maincategory = $2)',
-      'AND ($3 IS NULL OR subcategory = $3)',
-      'AND ($4 IS NULL OR brand = $4)',
       'AND ($5 IS NULL OR $5 = ANY(colors))',
       'AND ($6 IS NULL OR size = $6)',
       'AND (',
@@ -536,6 +533,9 @@ describe('Products Functions', () => {
       '$14',
       ')',
       ')',
+      'AND ($2 IS NULL OR maincategory = $2)',
+      'AND ($3 IS NULL OR subcategory = $3)',
+      'AND ($4 IS NULL OR brand = $4)',
       'ORDER BY',
       'updated DESC',
       'LIMIT 10 OFFSET 0',
@@ -596,9 +596,7 @@ describe('Products Functions', () => {
       'maincategory ILIKE $1 OR',
       'subcategory ILIKE $1',
       ')',
-      'AND ($2 IS NULL OR maincategory = $2)',
-      'AND ($3 IS NULL OR subcategory = $3)',
-      'AND ($4 IS NULL OR brand = $4)',
+
       'AND ($5 IS NULL OR $5 = ANY(colors))',
       'AND ($6 IS NULL OR size = $6)',
       'AND (',
@@ -616,6 +614,9 @@ describe('Products Functions', () => {
       '$14',
       ')',
       ')',
+      'AND ($2 IS NULL OR maincategory = $2)',
+      'AND ($3 IS NULL OR subcategory = $3)',
+      'AND ($4 IS NULL OR brand = $4)',
       'ORDER BY',
       'updated DESC',
       'LIMIT 10 OFFSET 0',
@@ -692,13 +693,13 @@ describe('Products Functions', () => {
       );
     });
   });
-  
-  describe('deleteProduct', () => {  
+
+  describe('deleteProduct', () => {
     it('should delete a product from PostgreSQL', async () => {
       const db = connectToPostgres();
       const productId = 'default-product-id'
       deleteProduct({ params: { productId: productId } })
-  
+
       expect(db.none).toHaveBeenCalledWith(
         'DELETE FROM products WHERE firestoreid = $1',
         expect.arrayContaining([productId]),

@@ -1,4 +1,4 @@
-export const importedUsers = [{
+module.exports = [{
   appIdentifier: 'com.littleswaps',
   badgeCount: 0,
   createdAt: 1737139817,
