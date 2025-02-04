@@ -42,27 +42,74 @@ const handleStripeTransfers = async ({
   paymentIntentId,
   purchasePriceDetails,
   seller,
-  stripe
+  stripe,
+  productId,
 }) => {
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  logger.info('payment intent from stripe', paymentIntent)
   const total = paymentIntent.amount_received;
 
-  const { commission, shippingRate = 0, swapSpotCommission = 0 } = purchasePriceDetails;
+  const { commission, shippingRate = 0, swapSpotCommission = 0, tax = 0 } = purchasePriceDetails;
+  logger.info(`The price breakdown: total: ${total} commission: ${commission}, shippingRate: ${shippingRate} swapSpotCommission: ${swapSpotCommission}`)
   if (swapSpotId) {
-    await stripe.transfers.create({
-      amount: Math.round(swapSpotCommission),
-      currency: 'usd',
-      destination: await getUserStripeAccountId(swapSpotId),
-      source_transaction: paymentIntent.id,
-    });
+    const swapSpotStripeId = await getUserStripeAccountId(swapSpotId);
+    const earnings = Math.round(swapSpotCommission * 100);
+    if (swapSpotStripeId) {
+      await stripe.transfers.create({
+        amount: earnings,
+        currency: "usd",
+        destination: swapSpotStripeId,
+        source_transaction: paymentIntent.latest_charge,
+      });
+    } else {
+      logger.warn(`SwapSpot ${swapSpotId} has no Stripe account. Skipping transfer.`);
+      await storePendingPayout({
+        user: swapSpotId, 
+        amount: earnings/100,
+        chargeId: paymentIntent.latest_charge, 
+        productId
+      });
+    }
   }
 
-  await stripe.transfers.create({
-    amount: Math.round(total - swapSpotCommission - commission - shippingRate),
-    currency: 'usd',
-    destination: await getUserStripeAccountId(seller),
-    source_transaction: paymentIntent.id,
-  });
+  const sellerStripeId = await getUserStripeAccountId(seller);
+  const sellerEarnings = Math.round(
+    total - (swapSpotCommission * 100) - (commission * 100) - (shippingRate * 100) - (tax * 100)
+  );
+
+  if (sellerStripeId) {
+    await stripe.transfers.create({
+      amount: sellerEarnings,
+      currency: "usd",
+      destination: sellerStripeId,
+      source_transaction: paymentIntent.latest_charge,
+    });
+  } else {
+    logger.warn(`Seller ${seller} has no Stripe account. Storing pending payout.`);
+    await storePendingPayout({
+      user: seller, 
+      amount: sellerEarnings/100,
+      chargeId: paymentIntent.latest_charge, 
+      productId
+    });
+  }
+};
+
+const storePendingPayout = async ({user, amount, chargeId, productId}) => {
+  try {
+    await userRef.doc(user).update({
+      pendingPayouts: admin.firestore.FieldValue.arrayUnion({
+        amount,
+        currency: "usd",
+        chargeId,
+        productId,
+        timestamp: Date.now()
+      })
+    });
+    logger.info(`Stored pending payout for seller ${user}: $${amount / 100}`);
+  } catch (error) {
+    logger.error("Error storing pending payout:", error);
+  }
 };
 
 const updateUserOrderStatus = async (userId, productId, status) => {
@@ -189,7 +236,8 @@ const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
     paymentIntentId,
     purchasePriceDetails,
     seller,
-    stripe
+    stripe,
+    productId,
   });
   await sendNotificationToUser({
     userId: seller,
@@ -258,7 +306,8 @@ const handleDelivered = async ({ productId, stripe }) => {
     paymentIntentId,
     purchasePriceDetails,
     seller: product.user,
-    stripe
+    stripe,
+    productId,
   });
   await sendNotificationToUser({
     userId: product.user,

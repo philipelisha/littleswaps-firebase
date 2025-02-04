@@ -13,11 +13,12 @@
     "test:watch": "cd functions && npm run test:watch",
     "test:coverage": "cd functions && npm run test:coverage",
     "emulators:start": "npm run emulators:stop && sh startEmulators.sh",
-    "emulators:stop": "npx kill-port 8080 9099 5001 9199 4500 9150 4400 4000 4010 4011"
+    "emulators:stop": "npx kill-port 8080 9099 5001 9199 4500 9150 4400 4000 4010 4011 5432"
   },
   "private": true,
   "devDependencies": {
     "firebase-admin": "^13.0.2",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "pg-promise": "^11.10.2"
   }
 }

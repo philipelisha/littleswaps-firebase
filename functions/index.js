@@ -40,6 +40,7 @@ export const updateOrderStatus = https.onCall(orders.updateOrderStatus);
 export const addCardToPaymentIntent = https.onCall(payments.addCardToPaymentIntent);
 export const confirmPaymentIntent = https.onCall(payments.confirmPaymentIntent);
 export const createStripeAccount = https.onCall(payments.createStripeAccount);
+export const transferPendingPayouts = https.onCall(payments.transferPendingPayouts);
 export const getStripeBalance = https.onCall(payments.getStripeBalance);
 export const getLinkedAccounts = https.onCall(payments.getLinkedAccounts);
 export const createLoginLink = https.onCall(payments.createLoginLink);

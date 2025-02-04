@@ -101,7 +101,6 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
   }
 
   try {
-
     const { email, user } = data;
     logger.info('Starting to create the stripe account')
     const account = await stripe.accounts.create({
@@ -112,7 +111,6 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
 
     logger.info('New Stripe account Id: ' + account.id)
 
-
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
       refresh_url: 'https://littleswaps.com/redirect?path=user-balance&reauth=true&accountId=' + account.id,
@@ -122,7 +120,7 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
 
     await admin.firestore().collection('users').doc(user).update({
       stripeAccountId: account.id,
-      stripeAccountLink: accountLink.url
+      stripeAccountLink: accountLink.url,
     });
 
     logger.info('Finished creating the stripe account: ' + accountLink)
@@ -134,6 +132,51 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
     return false;
   }
 };
+
+export const transferPendingPayouts = async (data, context, stripe = stripeSDK) => {
+  if (!context.auth) {
+    throw new https.HttpsError('unauthenticated', 'Authentication required.');
+  }
+
+  const { user } = data;
+  logger.info("user", user)
+
+  try {
+    const userDocRef = admin.firestore().collection('users').doc(user);
+    const userDoc = await userDocRef.get();
+    let userDocData;
+    if (userDoc.exists) {
+      userDocData = userDoc.data();
+    }
+
+    const pendingPayouts = userDocData.pendingPayouts || [];
+
+    await Promise.all(pendingPayouts.map((payout) =>
+      stripe.transfers.create({
+        amount: payout.amount * 100,
+        currency: payout.currency,
+        destination: userDocData.stripeAccountId,
+        source_transaction: payout.chargeId,
+      })
+    ));
+
+    await userDocRef.update({
+      pendingPayouts: []
+    });
+    
+    return {
+      message: 'success',
+      data: true,
+    };
+  } catch (error) {
+    logger.error(JSON.stringify(error.message))
+    console.error('Error transfering balance:', error);
+    return {
+      message: error.message,
+      data: false,
+    };
+  }
+}
 
 export const getStripeBalance = async (data, context, stripe = stripeSDK) => {
   if (!context.auth) {
@@ -456,8 +499,7 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
       return res.status(401).send('Unauthorized');
     }
 
-    const { data, event } = req.body;
-    const { metadata: productId, tracking_status } = data;
+    const { metadata: productId, tracking_status } = req.body.data;
     if (!productId || !tracking_status) {
       return res.status(400).json({
         success: false,
