@@ -375,7 +375,7 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
 
     return transaction;
   } catch (error) {
-    logger.error(JSON.stringify(error))
+    logger.error(JSON.stringify(error.message))
     return {
       success: false,
       message: error.message,
@@ -386,6 +386,7 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
 
 export const validateAddress = async (data, context, key = shippoKey) => {
   logger.info("~~~~~~~~~~~~ START validateAddress ~~~~~~~~~~~~", data);
+  logger.info("Shippo Key: ", key);
 
   if (!context.auth) {
     throw new https.HttpsError("unauthenticated", "Authentication required.");

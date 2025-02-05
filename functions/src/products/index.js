@@ -107,43 +107,53 @@ export const updateProduct = async (event) => {
   let db;
   try {
     const beforeData = event.data.before.data();
-    const afterData = event.data.after.data();
+    const data = event.data.after.data();
     logger.info('beforeData', beforeData)
-    logger.info('afterData', afterData)
+    logger.info('afterData', data)
 
     const productId = event.params.productId;
-    const productDoc = await admin
-      .firestore()
-      .collection("products")
-      .doc(productId)
-      .get();
-    const data = productDoc.data();
+    try {
+      if (beforeData.title !== data.title) {
+        const likeSnapShot = await admin
+          .firestore()
+          .collection("likes")
+          .where('product', '==', productId)
+          .get();
 
-    if (beforeData.title !== afterData.title) {
-      const likeSnapShot = await admin
-        .firestore()
-        .collection("likes")
-        .where('product', '==', productId)
-        .get();
+        const batch = admin.firestore().batch();
+        likeSnapShot.forEach((doc) => {
+          const likeRef = doc.ref;
+          batch.update(likeRef, { title: data.title });
+        });
 
-      const batch = admin.firestore().batch();
-      likeSnapShot.forEach((doc) => {
-        const likeRef = doc.ref;
-        batch.update(likeRef, { title: afterData.title });
-      });
-
-      await batch.commit();
+        await batch.commit();
+      }
+    } catch (error) {
+      logger.error('Error updating the PostgreSQL record :', error);
     }
 
-    updateUsersListingCounts(data.user, {
-      isActive: data.active,
-      updatingActive: beforeData.active !== afterData.active,
-      isSold: Boolean(!beforeData.purchaseDate && afterData.purchaseDate),
-    });
-    updateProductSnippet(data.user);
+    try {
+      updateUsersListingCounts(data.user, {
+        isActive: data.active,
+        updatingActive: beforeData.active !== data.active,
+        isSold: Boolean(!beforeData.purchaseDate && data.purchaseDate),
+      });
+    } catch (error) {
+      logger.error(`Error updating the user(${data.user}) listings count: `, error.message);
+    }
 
-    if (data.status === productStatus.PENDING_SHIPPING || data.status === productStatus.PENDING_SWAPSPOT_ARRIVAL) {
-      sendNotifications(data);
+    try {
+      updateProductSnippet(data.user);
+    } catch (error) {
+      logger.error(`Error updating the product snippet with user(${data.user}):`, error.message);
+    }
+
+    try {
+      if (data.status === productStatus.PENDING_SHIPPING || data.status === productStatus.PENDING_SWAPSPOT_ARRIVAL) {
+        sendNotifications(data);
+      }
+    } catch (error) {
+      logger.error(`Error sending the notifications(status: ${data.status}):`, error.message);
     }
 
     db = connectToPostgres();

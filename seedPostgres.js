@@ -44,7 +44,7 @@ async function initDB() {
         condition VARCHAR
       );
     `);
-    console.log("Database initialized");
+    console.log("Created Products Table with Correct Columns");
   } catch (err) {
     console.error("Error initializing database:", err);
   } finally {
@@ -52,4 +52,4 @@ async function initDB() {
   }
 }
 
-initDB().then(() => console.log("Database initialized"));
+initDB().finally(() => console.log("Database Setup Completed"));

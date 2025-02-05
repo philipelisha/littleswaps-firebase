@@ -149,8 +149,12 @@ const sendNotification = async (userId, payload) => {
 
     if (pushToken) {
       logger.info('pushToken: ', JSON.stringify(pushToken))
-      payload.message.token = pushToken;
-      const response = await admin.messaging().send(payload);
+      const formattedPayload = {
+        ...payload.message,
+        token: pushToken,
+      };
+      logger.info('Final payload: ', JSON.stringify(formattedPayload));
+      const response = await admin.messaging().send(formattedPayload);
       logger.info('Notification sent successfully to user:', userId);
       return response;
     } else {

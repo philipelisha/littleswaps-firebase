@@ -134,8 +134,8 @@ export const createOrder = async (event, stripe = stripeSDK) => {
           name: `${seller.firstName} ${seller.lastName}`,
           product: [{
             name: order.title,
-            size: order.size,
-            color: order.colors.join(', '),
+            size: order.size || '',
+            color: (order.colors || []).join(', '),
             price: order.price
           }]
         }
