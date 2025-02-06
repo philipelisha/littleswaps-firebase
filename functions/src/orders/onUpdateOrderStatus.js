@@ -64,9 +64,9 @@ const handleStripeTransfers = async ({
     } else {
       logger.warn(`SwapSpot ${swapSpotId} has no Stripe account. Skipping transfer.`);
       await storePendingPayout({
-        user: swapSpotId, 
-        amount: earnings/100,
-        chargeId: paymentIntent.latest_charge, 
+        user: swapSpotId,
+        amount: earnings / 100,
+        chargeId: paymentIntent.latest_charge,
         productId
       });
     }
@@ -87,15 +87,15 @@ const handleStripeTransfers = async ({
   } else {
     logger.warn(`Seller ${seller} has no Stripe account. Storing pending payout.`);
     await storePendingPayout({
-      user: seller, 
-      amount: sellerEarnings/100,
-      chargeId: paymentIntent.latest_charge, 
+      user: seller,
+      amount: sellerEarnings / 100,
+      chargeId: paymentIntent.latest_charge,
       productId
     });
   }
 };
 
-const storePendingPayout = async ({user, amount, chargeId, productId}) => {
+const storePendingPayout = async ({ user, amount, chargeId, productId }) => {
   try {
     await userRef.doc(user).update({
       pendingPayouts: admin.firestore.FieldValue.arrayUnion({

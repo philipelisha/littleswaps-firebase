@@ -9,7 +9,7 @@ sleep 5 # Adjust this if necessary
 export $(grep -v '^#' .env.local | xargs)
 firebase emulators:start &
 
-sleep 40
+sleep 50
 
 node seedPostgres.js
 node seedFirebase.js
