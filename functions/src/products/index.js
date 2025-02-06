@@ -90,6 +90,7 @@ export const createProduct = async (event) => {
       data.likes || 0,
       new Date(data.updated * 1000).toISOString(),
       data.availableShipping || null,
+      data.shippingIncluded || null,
       data.condition || null,
     ])
   } catch (error) {
@@ -180,6 +181,7 @@ export const updateProduct = async (event) => {
         data.availableShipping,
         data.purchaseDate ? new Date(data.purchaseDate.seconds * 1000).toISOString() : null,
         data.condition,
+        data.shippingIncluded,
         productId
       ])
   } catch (error) {

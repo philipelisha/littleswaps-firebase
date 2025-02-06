@@ -41,6 +41,7 @@ async function initDB() {
         longitude DOUBLE PRECISION, 
         availableshipping VARCHAR, 
         purchasedate DATE, 
+        shippingincluded BOOLEAN,
         condition VARCHAR
       );
     `);

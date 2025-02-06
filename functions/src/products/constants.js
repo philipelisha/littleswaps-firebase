@@ -19,9 +19,10 @@ export const insertQuery = `
     likes, 
     updated,
     availableShipping,
+    shippingIncluded,
     condition
   )
-  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 `;
 
 export const updateQuery = `
@@ -46,8 +47,9 @@ export const updateQuery = `
     updated = $17,
     availableShipping = $18,
     purchaseDate = $19,
-    condition = $20
-  WHERE firestoreid = $21
+    condition = $20,
+    shippingIncluded = $21
+  WHERE firestoreid = $22
 `;
 
 export const deleteQuery = 'DELETE FROM products WHERE firestoreid = $1'
