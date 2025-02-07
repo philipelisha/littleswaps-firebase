@@ -30,6 +30,7 @@ async function initDB() {
         maincategory VARCHAR, 
         subcategory VARCHAR, 
         mainimage VARCHAR, 
+        originalprice INTEGER, 
         price INTEGER, 
         size VARCHAR, 
         title VARCHAR, 
@@ -42,7 +43,8 @@ async function initDB() {
         availableshipping VARCHAR, 
         purchasedate DATE, 
         shippingincluded BOOLEAN,
-        condition VARCHAR
+        condition VARCHAR,
+        username VARCHAR
       );
     `);
     console.log("Created Products Table with Correct Columns");

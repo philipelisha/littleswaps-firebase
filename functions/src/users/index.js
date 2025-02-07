@@ -66,6 +66,7 @@ const handleUserValueUpdates = async ({ beforeData, afterData, userId }) => {
   ) {
     await syncComments(afterData);
     await syncLikes(userId, afterData);
+    await syncProducts(userId, afterData);
     await syncFollowers(userId, afterData);
     await syncReviews(userId, afterData);
   }
@@ -108,6 +109,25 @@ const syncLikes = async (userId, user) => {
         username: user.username || '',
         firstName: user.firstName || '',
         lastName: user.lastName || '',
+      });
+    });
+
+    await batch.commit();
+  }
+};
+
+const syncProducts = async (userId, user) => {
+  const productSnapshot = await admin
+    .firestore()
+    .collection('products')
+    .where('user', '==', userId)
+    .get();
+
+  if (!productSnapshot.empty) {
+    const batch = admin.firestore().batch();
+    productSnapshot.forEach((likeDoc) => {
+      batch.update(likeDoc.ref, {
+        username: user.username || '',
       });
     });
 

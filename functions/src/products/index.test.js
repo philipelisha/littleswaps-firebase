@@ -93,12 +93,14 @@ describe('Products Functions', () => {
         mainCategory: 'MockMainCategory',
         subCategory: 'MockSubCategory',
         mainImage: 'MockImage.jpg',
+        originalPrice: 80,
         price: 60,
         priceCurrency: 'USD',
         size: 'Medium',
         title: 'MockProduct',
         updated: 1708926137,
         user: 'mock-user-id',
+        username: 'mock-username',
         buyer: 'mock-buyer-id',
         availableShipping: 'Swap Spot',
         shippingIncluded: true,
@@ -123,8 +125,8 @@ describe('Products Functions', () => {
         isSold: false,
       })
 
-      const expectedInsert = `INSERT INTO products( firestoreId, active, userId, title, mainImage, price, priceCurrency, location, latitude, longitude, mainCategory, subCategory, size, brand, colors, isNewWithTags, likes, updated, availableShipping, shippingIncluded, condition )`;
-      const expectedValues = `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`;
+      const expectedInsert = `INSERT INTO products( firestoreId, active, userId, title, mainImage, price, priceCurrency, location, latitude, longitude, mainCategory, subCategory, size, brand, colors, isNewWithTags, likes, updated, availableShipping, shippingIncluded, condition, username, originalPrice )`;
+      const expectedValues = `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`;
 
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedInsert);
@@ -196,7 +198,7 @@ describe('Products Functions', () => {
         })
       );
 
-      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21 WHERE firestoreid = $22`;
+      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21, username = $22, originalPrice = $23 WHERE firestoreid = $24`;
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
       expect(db.none).toHaveBeenCalledWith(
@@ -222,6 +224,8 @@ describe('Products Functions', () => {
           productData.availableShipping,
           null,
           productData.condition,
+          productData.username,
+          productData.originalPrice,
           'default-product-id'
         ]),
       );
@@ -295,7 +299,7 @@ describe('Products Functions', () => {
         })
       );
 
-      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21 WHERE firestoreid = $22`;
+      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21, username = $22, originalPrice = $23 WHERE firestoreid = $24`;
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
       expect(db.none).toHaveBeenCalledWith(
@@ -322,6 +326,8 @@ describe('Products Functions', () => {
           null,
           productData.condition,
           productData.shippingIncluded,
+          productData.username,
+          productData.originalPrice,
           'default-product-id'
         ]),
       );

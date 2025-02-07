@@ -92,6 +92,8 @@ export const createProduct = async (event) => {
       data.availableShipping || null,
       data.shippingIncluded || null,
       data.condition || null,
+      data.username || null,
+      data.originalPrice || null,
     ])
   } catch (error) {
     logger.error(
@@ -182,6 +184,8 @@ export const updateProduct = async (event) => {
         data.purchaseDate ? new Date(data.purchaseDate.seconds * 1000).toISOString() : null,
         data.condition,
         data.shippingIncluded,
+        data.username,
+        data.originalPrice,
         productId
       ])
   } catch (error) {
