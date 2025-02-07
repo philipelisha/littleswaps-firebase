@@ -169,8 +169,7 @@ export const transferPendingPayouts = async (data, context, stripe = stripeSDK) 
       data: true,
     };
   } catch (error) {
-    logger.error(JSON.stringify(error.message))
-    console.error('Error transfering balance:', error);
+    logger.error('Error transfering balance: ', error.message);
     return {
       message: error.message,
       data: false,

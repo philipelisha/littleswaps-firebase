@@ -101,8 +101,8 @@ describe('onUpdateOrderStatus', () => {
   const mockStripe = {
     paymentIntents: {
       retrieve: jest.fn().mockResolvedValue({
-        amount_received: 100,
-        id: 'payment intent id'
+        amount_received: 10000,
+        latest_charge: 'charge id'
       })
     },
     transfers: {
@@ -412,10 +412,10 @@ describe('onUpdateOrderStatus', () => {
         updated: expect.any(Date),
       });
       expect(mockStripe.transfers.create).toHaveBeenCalledWith({
-        amount: 77,
+        amount: 7700,
         currency: 'usd',
         destination: "account id",
-        source_transaction: "payment intent id",
+        source_transaction: 'charge id',
       })
       expect(sendNotificationToUser).toHaveBeenCalledWith({
         userId: mockProductData.user,
@@ -512,16 +512,16 @@ describe('onUpdateOrderStatus', () => {
         updated: expect.any(Date),
       });
       expect(mockStripe.transfers.create).toHaveBeenCalledWith({
-        amount: 3,
+        amount: 300,
         currency: 'usd',
         destination: "swap stripe account id",
-        source_transaction: "payment intent id",
+        source_transaction: "charge id",
       })
       expect(mockStripe.transfers.create).toHaveBeenCalledWith({
-        amount: 77,
+        amount: 7700,
         currency: 'usd',
         destination: "account id",
-        source_transaction: "payment intent id",
+        source_transaction: "charge id",
       })
       expect(sendNotificationToUser).toHaveBeenCalledWith({
         userId: mockProductData.user,

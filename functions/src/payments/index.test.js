@@ -11,7 +11,8 @@ import {
   getStripeBalance,
   validateAddress,
   saveShippingLabel,
-  orderTrackingUpdate
+  orderTrackingUpdate,
+  transferPendingPayouts,
 } from './index'
 import axios from 'axios';
 import { orderActions } from '../../order.config';
@@ -29,11 +30,13 @@ const stripeMock = {
 }
 
 const mockUpdate = jest.fn();
+const mockGet = jest.fn();
 jest.mock('../../adminConfig.js', () => ({
   firestore: jest.fn(() => ({
     collection: jest.fn(() => ({
       doc: jest.fn(() => ({
         update: mockUpdate,
+        get: mockGet,
       })),
     })),
   })),
@@ -726,7 +729,7 @@ describe("createLabel", () => {
       labelFileType: 'PNG'
     });
     expect(logger.error).toHaveBeenCalledWith(
-      JSON.stringify(error)
+      JSON.stringify(error.message)
     );
   });
 });
@@ -886,7 +889,7 @@ describe('orderTrackingUpdate', () => {
   let mockOnUpdateOrderStatus
   beforeEach(async () => {
     mockOnUpdateOrderStatus = jest.fn();
-    onUpdateOrderStatus.mockImplementation(() => ({onUpdateOrderStatus: mockOnUpdateOrderStatus}));
+    onUpdateOrderStatus.mockImplementation(() => ({ onUpdateOrderStatus: mockOnUpdateOrderStatus }));
   });
 
   it('should process tracking update successfully', async () => {
@@ -948,4 +951,85 @@ describe('orderTrackingUpdate', () => {
   //   expect(mockRes.status).toHaveBeenCalledWith(500);
   //   expect(mockRes.send).toHaveBeenCalledWith('Internal Server Error');
   // });
+});
+
+
+describe("transferPendingPayouts", () => {
+  let stripeMock;
+
+  beforeEach(() => {
+    stripeMock = {
+      transfers: {
+        create: jest.fn().mockResolvedValue(),
+      },
+    };
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        stripeAccountId: 'stripe account id',
+        pendingPayouts: [
+          {
+            amount: 100,
+            currency: 'usd',
+            chargeId: 'charge id',
+          }
+        ]
+      }),
+    });
+  });
+
+  it("should transfer the payouts successfully", async () => {
+    const data = { user: 'someUserId' };
+    const context = { auth: { uid: 'someUserId' } };
+
+    const result = await transferPendingPayouts(data, context, stripeMock);
+
+    expect(result).toStrictEqual({
+      message: 'success',
+      data: true,
+    });
+    expect(stripeMock.transfers.create).toHaveBeenCalledWith({
+      amount: 10000,
+      currency: 'usd',
+      destination: 'stripe account id',
+      source_transaction: 'charge id',
+    });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      pendingPayouts: []
+    })
+  });
+
+  it("should handle unauthenticated user", async () => {
+    const data = { accountId: 'acct_123' };
+    const context = { auth: null };
+
+    await expect(transferPendingPayouts(data, context, stripeMock)).rejects.toThrow(
+      'Authentication required.'
+    );
+    expect(stripeMock.transfers.create).not.toHaveBeenCalled();
+  });
+
+  it("should handle error", async () => {
+    const data = { accountId: 'acct_123' };
+    const context = { auth: { uid: 'someUserId' } };
+    jest.spyOn(logger, 'error').mockImplementation(() => { })
+    const errorMessage = new Error('Failed to transfer');
+    stripeMock.transfers.create.mockRejectedValue(errorMessage)
+
+    const result = await transferPendingPayouts(data, context, stripeMock);
+
+    expect(result).toStrictEqual({
+      message: errorMessage.message,
+      data: false,
+    });
+    expect(stripeMock.transfers.create).toHaveBeenCalledWith({
+      amount: 10000,
+      currency: 'usd',
+      destination: 'stripe account id',
+      source_transaction: 'charge id',
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error transfering balance: ', errorMessage.message
+    );
+  });
 });

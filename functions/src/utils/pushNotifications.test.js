@@ -44,37 +44,37 @@ describe('sendNotificationToUser', () => {
     {
       type: 'buyer_' + productStatus.PENDING_SHIPPING,
       notificationTitle: '📦 Order Confirmed!',
-      body: 'Your order for {title} has been placed successfully. We\'ll notify you when it\'s shipped!'
+      body: 'Your order for Sample Product has been placed successfully. We\'ll notify you when it\'s shipped!'
     },
     {
       type: 'buyer_' + productStatus.LABEL_CREATED,
       notificationTitle: '📦 Shipping label created!',
-      body: 'Your order for {title} has a shipping label. We\'ll notify you when it\'s shipped!'
+      body: 'Your order for Sample Product has a shipping label. We\'ll notify you when it\'s shipped!'
     },
     {
       type: 'buyer_' + productStatus.SHIPPED,
       notificationTitle: '🚚 Your Item is on the way!',
-      body: 'Your order for {title} has been shipped. Track its progress in the app.'
+      body: 'Your order for Sample Product has been shipped. Track its progress in the app.'
     },
     {
       type: 'buyer_' + productStatus.OUT_FOR_DELIVERY,
       notificationTitle: '🚚 Your Item is out for delivery!',
-      body: 'Your order for {title} is out for delivery. Track its progress in the app.'
+      body: 'Your order for Sample Product is out for delivery. Track its progress in the app.'
     },
     {
       type: 'buyer_' + productStatus.PENDING_SWAPSPOT_PICKUP,
       notificationTitle: '📍 Your Item is Ready for Pickup!',
-      body: '{title} is now available at your swap spot. Pick it up at your convenience!'
+      body: 'Sample Product is now available at undefined. Pick it up at your convenience!'
     },
     {
       type: 'buyer_' + productStatus.COMPLETED,
       notificationTitle: '📝 Rate Your Experience',
-      body: 'Let us know how your purchase of {title} went. Leave a review and help others!'
+      body: 'Let us know how your purchase of Sample Product went. Leave a review and help others!'
     },
     {
       type: 'seller_' + productStatus.PENDING_SHIPPING,
       notificationTitle: '🎉 New Order Received!',
-      body: '{title} has sold!.'
+      body: 'Sample Product has sold!.'
     },
     {
       type: 'seller_' + orderActions.DELIVERED,
@@ -84,12 +84,12 @@ describe('sendNotificationToUser', () => {
     {
       type: 'swapspot_' + productStatus.PENDING_SWAPSPOT_ARRIVAL,
       notificationTitle: '📦 Incoming Package!',
-      body: 'A new package, {title}, is on its way to your location.'
+      body: 'A new package, Sample Product, is on its way to your location.'
     },
     {
       type: 'DELIVERED',
       notificationTitle: '📍 New Item Delivered!',
-      body: '{title} has arrived.'
+      body: 'Sample Product has arrived.'
     }
   ];
 
@@ -101,14 +101,20 @@ describe('sendNotificationToUser', () => {
 
       const result = await sendNotificationToUser({ userId: mockUserId, type, args });
 
-      expect(admin.messaging().send).toHaveBeenCalledWith(expect.objectContaining({ message: expect.any(Object) }));
+      expect(admin.messaging().send).toHaveBeenCalledWith({
+        notification: {
+          body: body,
+          title: notificationTitle
+        }, 
+        "token": "fcmToken123"
+      });
       expect(result).toEqual('messageId123');
     });
   });
 
   it('should log an error if no user document is found', async () => {
     admin.firestore().get.mockResolvedValue({ exists: false });
-    
+
     await sendNotificationToUser({ userId: mockUserId, type: 'buyer_' + productStatus.SHIPPED, args: { title: mockTitle } });
 
     expect(logger.error).toHaveBeenCalledWith('No user document found for user ID:', mockUserId);

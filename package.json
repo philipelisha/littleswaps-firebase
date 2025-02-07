@@ -7,7 +7,7 @@
     "serve": "cd functions && npm run serve",
     "shell": "cd functions && npm run shell",
     "start": "cd functions && npm run start",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "npm run test && firebase deploy --only functions",
     "logs": "cd functions && npm run logs",
     "test": "jest --config 'functions/jest.config.js'",
     "test:watch": "cd functions && npm run test:watch",

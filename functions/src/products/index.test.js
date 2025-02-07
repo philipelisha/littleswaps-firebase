@@ -101,6 +101,7 @@ describe('Products Functions', () => {
         user: 'mock-user-id',
         buyer: 'mock-buyer-id',
         availableShipping: 'Swap Spot',
+        shippingIncluded: true,
         latitude: 100,
         longitude: 50,
         status: 'PENDING_SHIPPING'
@@ -108,7 +109,6 @@ describe('Products Functions', () => {
       mockGet.mockResolvedValueOnce({
         data: () => productData
       })
-      // mockData = () => productData;
     });
 
     it('should add a product to PostgreSQL', async () => {
@@ -123,8 +123,8 @@ describe('Products Functions', () => {
         isSold: false,
       })
 
-      const expectedInsert = `INSERT INTO products( firestoreId, active, userId, title, mainImage, price, priceCurrency, location, latitude, longitude, mainCategory, subCategory, size, brand, colors, isNewWithTags, likes, updated, availableShipping, condition )`;
-      const expectedValues = `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`;
+      const expectedInsert = `INSERT INTO products( firestoreId, active, userId, title, mainImage, price, priceCurrency, location, latitude, longitude, mainCategory, subCategory, size, brand, colors, isNewWithTags, likes, updated, availableShipping, shippingIncluded, condition )`;
+      const expectedValues = `VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`;
 
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedInsert);
@@ -162,10 +162,10 @@ describe('Products Functions', () => {
         params: { productId: productId },
         data: {
           before: {
-            data: () => ({ active: true }),
+            data: () => ({ active: false, title: productData.title }),
           },
           after: {
-            data: () => ({ active: false }),
+            data: () => productData,
           },
         }
       });
@@ -196,7 +196,7 @@ describe('Products Functions', () => {
         })
       );
 
-      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20 WHERE firestoreid = $21`;
+      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21 WHERE firestoreid = $22`;
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
       expect(db.none).toHaveBeenCalledWith(
@@ -252,9 +252,6 @@ describe('Products Functions', () => {
         longitude: 50,
         status: 'PENDING_SWAPSPOT_ARRIVAL'
       };
-      mockGet.mockResolvedValueOnce({
-        data: () => productData
-      })
     });
 
     it('should update a product to PostgreSQL', async () => {
@@ -264,10 +261,10 @@ describe('Products Functions', () => {
         params: { productId: productId },
         data: {
           before: {
-            data: () => ({ active: true }),
+            data: () => ({ active: false }),
           },
           after: {
-            data: () => ({ active: false }),
+            data: () => productData,
           },
         }
       });
@@ -298,7 +295,7 @@ describe('Products Functions', () => {
         })
       );
 
-      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20 WHERE firestoreid = $21`;
+      const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21 WHERE firestoreid = $22`;
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
       expect(db.none).toHaveBeenCalledWith(
@@ -324,6 +321,7 @@ describe('Products Functions', () => {
           productData.availableShipping,
           null,
           productData.condition,
+          productData.shippingIncluded,
           'default-product-id'
         ]),
       );
