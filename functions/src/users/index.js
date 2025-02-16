@@ -5,6 +5,7 @@ import { emailTemplates, sendEmail } from "../utils/index.js";
 export const defaultProfileImage = 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media';
 
 export const createUser = async (event) => {
+  logger.info("~~~~~~~~~~~~ START createUser ~~~~~~~~~~~~", event);
   try {
     const userId = event.params.userId;
     const userDoc = await admin
@@ -30,6 +31,7 @@ export const createUser = async (event) => {
 };
 
 export const updateUser = async (event) => {
+  logger.info("~~~~~~~~~~~~ START updateUser ~~~~~~~~~~~~", event);
   try {
     const userId = event.params.userId;
     const beforeData = event.data.before.data();

@@ -2,6 +2,7 @@ import { https, logger } from "firebase-functions";
 import admin from '../../adminConfig.js';
 
 export const deleteUser = async (data, context) => {
+  logger.info("~~~~~~~~~~~~ START deleteUser ~~~~~~~~~~~~", data);
   if (!context.auth) {
     throw new https.HttpsError(
       "unauthenticated",

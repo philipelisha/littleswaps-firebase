@@ -13,6 +13,7 @@ const productRef = db.collection("products")
 
 import { onUpdateOrderStatus } from './onUpdateOrderStatus.js';
 export const updateOrderStatus = async (data, context) => {
+  logger.info("~~~~~~~~~~~~ START updateOrderStatus ~~~~~~~~~~~~", data);
   try {
     if (!context.auth) {
       throw new https.HttpsError("unauthenticated", "Authentication required.");
@@ -34,6 +35,7 @@ export const updateOrderStatus = async (data, context) => {
 };
 
 export const createOrder = async (event, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START createOrder ~~~~~~~~~~~~", event);
   try {
     const { userId, orderId } = event.params;
     logger.info(`Processing order creation for userId: ${userId}, orderId: ${orderId}`);
@@ -124,7 +126,8 @@ export const createOrder = async (event, stripe = stripeSDK) => {
         templateId: emailTemplates.BUYER_NEW_ORDER,
         data: {
           name: `${buyer.firstName} ${buyer.lastName}`,
-          order_number: orderId.slice(0, 6)
+          order_number: orderId.slice(0, 6),
+          order_number_full: orderId,
         }
       }),
       sendEmail({

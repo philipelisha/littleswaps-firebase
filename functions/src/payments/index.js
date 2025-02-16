@@ -12,6 +12,7 @@ const envToken = process.env.token;
 const shippoSDK = new Shippo({ apiKeyHeader: shippoKey });
 
 export const addCardToPaymentIntent = async (data, context, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START addCardToPaymentIntent ~~~~~~~~~~~~", data);
   try {
     if (!context.auth) {
       throw new https.HttpsError("unauthenticated", "Authentication required.")
@@ -51,6 +52,7 @@ export const addCardToPaymentIntent = async (data, context, stripe = stripeSDK) 
 }
 
 export const confirmPaymentIntent = async (data, context, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START confirmPaymentIntent ~~~~~~~~~~~~", data);
   try {
     if (!context.auth) {
       throw new https.HttpsError("unauthenticated", "Authentication required.");
@@ -96,6 +98,7 @@ export const confirmPaymentIntent = async (data, context, stripe = stripeSDK) =>
 }
 
 export const createStripeAccount = async (data, context, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START createStripeAccount ~~~~~~~~~~~~", data);
   if (!context.auth) {
     throw new https.HttpsError('unauthenticated', 'Authentication required.');
   }
@@ -134,6 +137,7 @@ export const createStripeAccount = async (data, context, stripe = stripeSDK) => 
 };
 
 export const transferPendingPayouts = async (data, context, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START transferPendingPayouts ~~~~~~~~~~~~", data);
   if (!context.auth) {
     throw new https.HttpsError('unauthenticated', 'Authentication required.');
   }
@@ -178,6 +182,7 @@ export const transferPendingPayouts = async (data, context, stripe = stripeSDK) 
 }
 
 export const getStripeBalance = async (data, context, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START getStripeBalance ~~~~~~~~~~~~", data);
   if (!context.auth) {
     throw new https.HttpsError('unauthenticated', 'Authentication required.');
   }
@@ -220,7 +225,7 @@ export const getLinkedAccounts = async (data, context, stripe = stripeSDK) => {
 }
 
 export const createLoginLink = async (data, context, stripe = stripeSDK) => {
-  logger.info("createLoginLink");
+  logger.info("~~~~~~~~~~~~ START createLoginLink ~~~~~~~~~~~~", data);
 
   if (!context.auth) {
     logger.error("You must be authenticated to call this function.");
@@ -241,6 +246,7 @@ export const createLoginLink = async (data, context, stripe = stripeSDK) => {
 };
 
 export const getEstimatedTaxes = async (data, context, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START getEstimatedTaxes ~~~~~~~~~~~~", data);
   if (!context.auth) {
     logger.error("You must be authenticated to call this function.");
     throw new https.HttpsError('unauthenticated', 'You must be authenticated to call this function.');
@@ -294,6 +300,12 @@ export const getEstimatedTaxes = async (data, context, stripe = stripeSDK) => {
 };
 
 export const failedPaymentIntent = async (req, res, stripe = stripeSDK) => {
+  logger.info("~~~~~~~~~~~~ START failedPaymentIntent ~~~~~~~~~~~~", {
+    body: req.body,
+    query: req.query,
+    headers: req.headers,
+    env: process.env.secret
+  });
   const sig = request.headers['stripe-signature'];
 
   let event;
@@ -319,7 +331,7 @@ export const failedPaymentIntent = async (req, res, stripe = stripeSDK) => {
 }
 
 export const createShipment = async (data, context, shippo = shippoSDK) => {
-  logger.info('~~~~~~~~~~~~ START createShipment ~~~~~~~~~~~~')
+  logger.info('~~~~~~~~~~~~ START createShipment ~~~~~~~~~~~~', data)
   if (!context.auth) {
     logger.error('unauthenticated')
     throw new https.HttpsError("unauthenticated", "Authentication required.");
@@ -430,7 +442,7 @@ export const validateAddress = async (data, context, key = shippoKey) => {
 
 export const saveShippingLabel = async (req, res, token = envToken) => {
   try {
-    logger.info('Received webhook request', {
+    logger.info("~~~~~~~~~~~~ START saveShippingLabel ~~~~~~~~~~~~", {
       body: req.body,
       query: req.query,
       headers: req.headers,
@@ -486,7 +498,7 @@ export const saveShippingLabel = async (req, res, token = envToken) => {
 
 export const orderTrackingUpdate = async (req, res, token = envToken) => {
   try {
-    logger.info('Received webhook request', {
+    logger.info("~~~~~~~~~~~~ START orderTrackingUpdate ~~~~~~~~~~~~", {
       body: req.body,
       query: req.query,
       headers: req.headers,

@@ -27,6 +27,8 @@ async function seedDatabase() {
       { name: 'Little Tikes', search: 'little tikes' },
       { name: 'Fisher-Price', search: 'fisher-price' },
       { name: 'Melissa & Doug', search: 'melissa & doug' },
+      { name: 'Barbie', search: 'barbie' },
+      { name: 'Baby Gap', search: 'baby gap' },
     ];
     for (const brand of brands) {
       await db.collection('brands').add(brand);

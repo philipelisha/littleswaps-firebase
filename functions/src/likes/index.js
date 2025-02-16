@@ -3,6 +3,7 @@ import {getIdsFromEvent} from "../utils/index.js";
 import {updateProductLike} from "./updateProductLike.js";
 
 export const createLike = async (event) => {
+  logger.info("~~~~~~~~~~~~ START createLike ~~~~~~~~~~~~", event);
   try {
     const {document} = getIdsFromEvent(event, "likeId");
 
@@ -16,6 +17,7 @@ export const createLike = async (event) => {
 };
 
 export const deleteLike = async (event) => {
+  logger.info("~~~~~~~~~~~~ START deleteLike ~~~~~~~~~~~~", event);
   try {
     const {document} = getIdsFromEvent(event, "likeId");
 

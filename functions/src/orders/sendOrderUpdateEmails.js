@@ -34,6 +34,7 @@ export const sendShippedEmails = async ({
         total: order.purchasePriceDetails.total,
         subtotal: product.price,
         order_number: order.id.slice(0, 6),
+        order_number_full: order.id,
         shipping_day: format(new Date(), 'MM/dd/yyyy'),
         delivery_method: order.shippingCarrier,
         tracking_number: product.shippingNumber,

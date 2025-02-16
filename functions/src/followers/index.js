@@ -3,6 +3,7 @@ import { getIdsFromEvent } from "../utils/index.js";
 import { updateFollowCounts } from "./updateFollowCounts.js";
 
 export const createFollower = async (event) => {
+  logger.info("~~~~~~~~~~~~ START createFollower ~~~~~~~~~~~~", event);
   try {
     const { user, document } = getIdsFromEvent(event, "followerId");
 
@@ -18,6 +19,7 @@ export const createFollower = async (event) => {
 };
 
 export const deleteFollower = async (event) => {
+  logger.info("~~~~~~~~~~~~ START deleteFollower ~~~~~~~~~~~~", event);
   try {
     const { user, document } = getIdsFromEvent(event, "followerId");
 

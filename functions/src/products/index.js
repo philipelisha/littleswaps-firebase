@@ -50,6 +50,7 @@ const sendNotifications = (product) => {
 
 
 export const createProduct = async (event) => {
+  logger.info("~~~~~~~~~~~~ START createProduct ~~~~~~~~~~~~", event);
   let db;
   try {
     const productId = event.params.productId;
@@ -84,10 +85,10 @@ export const createProduct = async (event) => {
       data.mainCategory,
       data.subCategory || null,
       data.size || null,
-      data.brand,
+      data.brand || null,
       data.colors || null,
       data.isNewWithTags,
-      data.likes || 0,
+      data.likes || 1,
       new Date(data.updated * 1000).toISOString(),
       data.availableShipping || null,
       data.shippingIncluded || null,
@@ -106,6 +107,7 @@ export const createProduct = async (event) => {
 }
 
 export const updateProduct = async (event) => {
+  logger.info("~~~~~~~~~~~~ START updateProduct ~~~~~~~~~~~~", event);
   // TODO: should update the reviews that reference this product if appropriate fields are changed
   let db;
   try {
@@ -169,23 +171,23 @@ export const updateProduct = async (event) => {
         data.mainImage,
         data.price,
         data.priceCurrency,
-        data.location,
+        data.location || null,
         data.latitude,
         data.longitude,
         data.mainCategory,
-        data.subCategory,
-        data.size,
-        data.brand,
-        data.colors,
+        data.subCategory || null,
+        data.size || null,
+        data.brand || null,
+        data.colors || null,
         data.isNewWithTags,
-        data.likes,
+        data.likes || 1,
         new Date(data.updated * 1000).toISOString(),
         data.availableShipping,
         data.purchaseDate ? new Date(data.purchaseDate.seconds * 1000).toISOString() : null,
-        data.condition,
-        data.shippingIncluded,
-        data.username,
-        data.originalPrice,
+        data.condition || null,
+        data.shippingIncluded || null,
+        data.username || null,
+        data.originalPrice || null,
         productId
       ])
   } catch (error) {
@@ -196,6 +198,7 @@ export const updateProduct = async (event) => {
 };
 
 export const deleteProduct = async (event) => {
+  logger.info("~~~~~~~~~~~~ START deleteProduct ~~~~~~~~~~~~", event);
   const productId = event.params.productId;
 
   let db;
@@ -217,6 +220,7 @@ export const deleteProduct = async (event) => {
 }
 
 export const searchProducts = async (data, context) => {
+  logger.info("~~~~~~~~~~~~ START searchProducts ~~~~~~~~~~~~", data);
   let db;
   try {
     if (!context.auth) {
@@ -295,6 +299,7 @@ export const searchProducts = async (data, context) => {
 };
 
 export const onShare = async (data, context) => {
+  logger.info("~~~~~~~~~~~~ START onShare ~~~~~~~~~~~~", data);
   try {
     if (!context.auth) {
       throw new https.HttpsError("unauthenticated", "Authentication required.")

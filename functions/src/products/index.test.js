@@ -104,6 +104,7 @@ describe('Products Functions', () => {
         buyer: 'mock-buyer-id',
         availableShipping: 'Swap Spot',
         shippingIncluded: true,
+        condition: 'New With Tags',
         latitude: 100,
         longitude: 50,
         status: 'PENDING_SHIPPING'
@@ -241,9 +242,11 @@ describe('Products Functions', () => {
         likes: 10,
         location: 'MockLocation',
         isNewWithTags: true,
+        shippingIncluded: true,
         mainCategory: 'MockMainCategory',
         subCategory: 'MockSubCategory',
         mainImage: 'MockImage.jpg',
+        originalPrice: 160,
         price: 60,
         priceCurrency: 'USD',
         size: 'Medium',
@@ -252,6 +255,8 @@ describe('Products Functions', () => {
         user: 'mock-user-id',
         buyer: 'mock-buyer-id',
         availableShipping: 'Swap Spot',
+        condition: 'New With Tags',
+        username: 'MockUsername',
         latitude: 100,
         longitude: 50,
         status: 'PENDING_SWAPSPOT_ARRIVAL'

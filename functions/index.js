@@ -11,6 +11,7 @@ import * as users from "./src/users/index.js";
 import * as reviews from "./src/users/reviews.js";
 import * as payments from './src/payments/index.js';
 import * as orders from './src/orders/index.js';
+import * as business from './src/business/index.js';
 
 // ### FIRESTORE ###
 // user
@@ -57,3 +58,6 @@ export const createLabel = https.onCall(payments.createLabel);
 // webhook
 export const saveShippingLabel = https.onRequest(payments.saveShippingLabel);
 export const orderTrackingUpdate = https.onRequest(payments.orderTrackingUpdate);
+
+// ### BUSINESS ### 
+export const getMetrics = https.onRequest(business.getMetrics);
