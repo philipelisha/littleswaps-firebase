@@ -12,6 +12,25 @@ const db = admin.firestore();
 const userRef = db.collection("users")
 const productRef = db.collection("products")
 
+const isProductStatusUpdated = async (productId, status) => {
+  const productDoc = productRef.doc(productId);
+  const productSnapshot = await productDoc.get();
+
+  if (!productSnapshot.exists) {
+    logger.warn(`Product ${productId} not found.`);
+    return true;
+  }
+
+  const product = productSnapshot.data();
+
+  if (product.status === status) {
+    logger.warn(`Product ${productId} already has status ${status}. Skipping update.`);
+    return true;
+  }
+
+  return false;
+};
+
 const getUserData = async (id) => {
   return await userRef.doc(id).get();
 };
@@ -27,7 +46,8 @@ const getUserStripeAccountId = async (userId) => {
     const userData = snapshot.data();
 
     if (!userData.stripeAccountId) {
-      throw new Error('No stripe account found');
+      logger.warn('No stripe account found');
+      return false;
     }
 
     return userData.stripeAccountId;
@@ -106,7 +126,7 @@ const storePendingPayout = async ({ user, amount, chargeId, productId }) => {
         timestamp: Date.now()
       })
     });
-    logger.info(`Stored pending payout for seller ${user}: $${amount / 100}`);
+    logger.info(`Stored pending payout for seller ${user}: $${amount}`);
   } catch (error) {
     logger.error("Error storing pending payout:", error);
   }
@@ -213,6 +233,10 @@ const handleDeliveredEmails = async (product, order) => {
 
 const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
   const status = productStatus.PENDING_SWAPSPOT_PICKUP;
+  if (isProductStatusUpdated(productId, status)) {
+    return;
+  }
+
   const { buyer } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
   const { title } = await updateUserOrderStatus(buyer, productId, status);
   await updateProductStatus(productId, status);
@@ -227,6 +251,10 @@ const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
 
 const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
   const status = productStatus.COMPLETED;
+  if (isProductStatusUpdated(productId, status)) {
+    return;
+  }
+
   const { buyer, seller } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
   const { paymentIntentId, title } = await updateUserOrderStatus(buyer, productId, status);
   const product = await updateProductStatus(productId, status);
@@ -255,6 +283,10 @@ const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
 
 const handleLabelCreated = async ({ productId }) => {
   const status = productStatus.LABEL_CREATED;
+  if (isProductStatusUpdated(productId, status)) {
+    return;
+  }
+
   const product = await updateProductStatus(productId, status);
   await updateUserOrderStatus(product.buyer, productId, status);
 
@@ -269,6 +301,10 @@ const handleLabelCreated = async ({ productId }) => {
 
 const handleShipped = async ({ productId }) => {
   const status = productStatus.SHIPPED;
+  if (isProductStatusUpdated(productId, status)) {
+    return;
+  }
+
   const product = await updateProductStatus(productId, status);
   const { order } = await updateUserOrderStatus(product.buyer, productId, status);
 
@@ -285,6 +321,10 @@ const handleShipped = async ({ productId }) => {
 
 const handleOutForDelivery = async ({ productId }) => {
   const status = productStatus.OUT_FOR_DELIVERY;
+  if (isProductStatusUpdated(productId, status)) {
+    return;
+  }
+
   const product = await updateProductStatus(productId, status);
   await updateUserOrderStatus(product.buyer, productId, status);
   await sendNotificationToUser({
@@ -298,6 +338,10 @@ const handleOutForDelivery = async ({ productId }) => {
 
 const handleDelivered = async ({ productId, stripe }) => {
   const status = productStatus.COMPLETED;
+  if (isProductStatusUpdated(productId, status)) {
+    return;
+  }
+  
   const product = await updateProductStatus(productId, status);
   const { purchasePriceDetails } = product;
   const { paymentIntentId, order } = await updateUserOrderStatus(product.buyer, productId, status);

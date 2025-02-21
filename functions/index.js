@@ -18,11 +18,9 @@ import * as business from './src/business/index.js';
 export const createUser = onDocumentCreated('/users/{userId}', users.createUser);
 export const updateUser = onDocumentUpdated('/users/{userId}', users.updateUser);
 export const deleteUser = https.onCall(users.deleteUser);
-
 // followers
 export const createFollower = onDocumentCreated('/followers/{followerId}', followers.createFollower);
 export const deleteFollower = onDocumentDeleted('/followers/{followerId}', followers.deleteFollower);
-
 // products
 export const createProduct = onDocumentCreated('/products/{productId}', products.createProduct);
 export const updateProduct = onDocumentUpdated('/products/{productId}', products.updateProduct);
@@ -31,7 +29,6 @@ export const shareProduct = https.onCall(products.onShare);
 export const searchProducts = https.onCall(products.searchProducts);
 export const createLike = onDocumentCreated('/likes/{likeId}', likes.createLike);
 export const deleteLike = onDocumentDeleted('/likes/{likeId}', likes.deleteLike);
-
 // payments
 export const createReview = onDocumentCreated('/users/{userId}/reviews/{reviewId}', reviews.createReview);
 export const createOrder = onDocumentCreated('/users/{userId}/orders/{orderId}', orders.createOrder);
@@ -46,7 +43,6 @@ export const getStripeBalance = https.onCall(payments.getStripeBalance);
 export const getLinkedAccounts = https.onCall(payments.getLinkedAccounts);
 export const createLoginLink = https.onCall(payments.createLoginLink);
 export const getEstimatedTaxes = https.onCall(payments.getEstimatedTaxes);
-
 // webhook
 export const failedPaymentIntent = https.onRequest(payments.failedPaymentIntent);
 
@@ -54,7 +50,6 @@ export const failedPaymentIntent = https.onRequest(payments.failedPaymentIntent)
 export const validateAddress = https.onCall(payments.validateAddress);
 export const createShipment = https.onCall(payments.createShipment);
 export const createLabel = https.onCall(payments.createLabel); 
-
 // webhook
 export const saveShippingLabel = https.onRequest(payments.saveShippingLabel);
 export const orderTrackingUpdate = https.onRequest(payments.orderTrackingUpdate);

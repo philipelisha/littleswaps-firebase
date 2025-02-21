@@ -154,13 +154,18 @@ const sendNotification = async (userId, payload) => {
         token: pushToken,
       };
       logger.info('Final payload: ', JSON.stringify(formattedPayload));
-      const response = await admin.messaging().send(formattedPayload);
-      logger.info('Notification sent successfully to user:', userId);
-      return response;
+      
+      try {
+        const response = await admin.messaging().send(formattedPayload);
+        logger.info('Notification sent successfully to user:', userId);
+        return response;
+      } catch (error) {
+        logger.warn('FCM error:', error.message);
+      }
     } else {
-      logger.error('No FCM token found for user:', userId);
+      logger.warn('No FCM token found for user:', userId);
     }
   } else {
-    logger.error('No user document found for user ID:', userId);
+    logger.warn('No user document found for user ID:', userId);
   }
 }

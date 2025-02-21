@@ -38,7 +38,7 @@ export const sendShippedEmails = async ({
         shipping_day: format(new Date(), 'MM/dd/yyyy'),
         delivery_method: order.shippingCarrier,
         tracking_number: product.shippingNumber,
-        delivery_method_fee: order.purchasePriceDetails.shippingRate
+        delivery_method_fee: product.shippingIncluded ? 0 : order.purchasePriceDetails.shippingRate
       },
       product: [
         {
@@ -88,7 +88,7 @@ export const sendDeliveredEmails = async ({
       product: [
         {
           name: product.title,
-          earned: product.price,
+          earned: (product.price - product.purchasePriceDetails?.commission - (product.shippingIncluded ? product.purchasePriceDetails?.shippingRate : 0)).toFixed(2),
           arrival_date: today,
           order_number: order.product.slice(0, 6)
         }

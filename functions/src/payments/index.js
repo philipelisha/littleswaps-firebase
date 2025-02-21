@@ -167,7 +167,7 @@ export const transferPendingPayouts = async (data, context, stripe = stripeSDK) 
     await userDocRef.update({
       pendingPayouts: []
     });
-    
+
     return {
       message: 'success',
       data: true,
@@ -351,6 +351,9 @@ export const createShipment = async (data, context, shippo = shippoSDK) => {
       },
       parcels: [parcel],
       async: false,
+      extra: {
+        qrCodeRequested: true
+      }
     });
 
     return shipment;
@@ -365,7 +368,7 @@ export const createShipment = async (data, context, shippo = shippoSDK) => {
 };
 
 export const createLabel = async (data, context, shippo = shippoSDK) => {
-  logger.info('~~~~~~~~~~~~ START createLabel ~~~~~~~~~~~~')
+  logger.info('~~~~~~~~~~~~ START createLabel ~~~~~~~~~~~~', data)
   if (!context.auth) {
     throw new https.HttpsError("unauthenticated", "Authentication required.");
   }
@@ -379,7 +382,7 @@ export const createLabel = async (data, context, shippo = shippoSDK) => {
 
     const transaction = await shippo.transactions.create({
       rate: rateId,
-      label_file_type: "PDF",
+      label_file_type: "PNG",
       metadata: productId,
       labelFileType: 'PNG'
     });
@@ -511,23 +514,43 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
       return res.status(401).send('Unauthorized');
     }
 
-    const { metadata: productId, tracking_status } = req.body.data;
-    if (!productId || !tracking_status) {
+    let { metadata: productId, tracking_status, tracking_number } = req.body.data;
+    if (!tracking_status) {
+      logger.warn('No Tracking Status Provided');
       return res.status(400).json({
         success: false,
-        message: 'Missing productId or tracking status.',
+        message: 'Missing tracking status.',
       });
+    }
+
+    if (!productId) {
+      logger.warn('No Meta Data Provided, looking up by tracking number')
+      const productSnapshot = await admin.firestore()
+        .collection('products')
+        .where('shippingNumber', '==', tracking_number)
+        .get();
+      if (!productSnapshot.empty) {
+        productId = productSnapshot.docs[0].id;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Product not found for the given tracking number.',
+        });
+      }
     }
 
     const { status, substatus } = tracking_status;
 
     const statusMapping = {
-      package_accepted: orderActions.SHIPPED,
-      outfordelivery: orderActions.OUT_FOR_DELIVERY,
-      delivered: orderActions.DELIVERED,
+      TRANSIT: orderActions.SHIPPED,
+      PACKAGE_ACCEPTED: orderActions.SHIPPED,
+      OUTFORDELIVERY: orderActions.OUT_FOR_DELIVERY,
+      'OUT FOR DELIVERY': orderActions.OUT_FOR_DELIVERY,
+      DELIVERED: orderActions.DELIVERED,
     };
 
-    const orderAction = statusMapping[substatus || status];
+    const statusKey = (substatus?.code || status || '').toUpperCase();
+    const orderAction = statusMapping[statusKey];
     if (!orderAction) {
       logger.warn('Unmapped status received:', status);
       return res.status(402).json({

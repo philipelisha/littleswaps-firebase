@@ -76,13 +76,13 @@ const deleteProducts = async (db, batch, userId) => {
     const productData = doc.data();
 
     if (!productData.purchaseDate) {
-      // await deleteProductReferences({
-      //   batch,
-      //   db,
-      //   doc,
-      //   currentUser: userId,
-      //   productUniqueKey: productData.key,
-      // });
+      await deleteProductReferences({
+        batch,
+        db,
+        doc,
+        currentUser: userId,
+        productUniqueKey: productData.key,
+      });
       batch.delete(doc.ref);
 
       console.log(`Queued removal of product with product id: ${doc.id}`);

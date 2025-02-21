@@ -88,6 +88,7 @@ describe('sendShippedEmails', () => {
           total: mockOrderData.purchasePriceDetails.total,
           subtotal: mockProductData.price,
           order_number: mockOrderData.id.slice(0, 6),
+          order_number_full: mockOrderData.id,
           shipping_day: format(new Date(), 'MM/dd/yyyy'),
           delivery_method: mockOrderData.shippingCarrier,
           tracking_number: mockProductData.shippingNumber,
