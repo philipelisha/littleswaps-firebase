@@ -117,18 +117,37 @@ export const updateProduct = async (event) => {
     logger.info('afterData', data)
 
     const productId = event.params.productId;
+    const firestoreDb = admin.firestore();
     try {
-      if (beforeData.title !== data.title) {
-        const likeSnapShot = await admin
-          .firestore()
+      if (
+        beforeData.title !== data.title ||
+        beforeData.mainImage !== data.mainImage
+      ) {
+        const updatedImage = beforeData.mainImage !== data.mainImage;
+        const likeSnapShot = await firestoreDb
           .collection("likes")
           .where('product', '==', productId)
           .get();
 
-        const batch = admin.firestore().batch();
+        const batch = firestoreDb.batch();
         likeSnapShot.forEach((doc) => {
           const likeRef = doc.ref;
           batch.update(likeRef, { title: data.title });
+        });
+
+        const notificationSnapshot = await firestoreDb
+          .collection("notifications")
+          .where("productId", "==", productId)
+          .get();
+
+        notificationSnapshot.forEach((doc) => {
+          const notificationRef = doc.ref;
+          batch.update(notificationRef, {
+            ...(updatedImage && {
+              imageUrl: data.mainImage
+            }),
+            "productSnapshot.title": data.title,
+          });
         });
 
         await batch.commit();
@@ -160,6 +179,51 @@ export const updateProduct = async (event) => {
     } catch (error) {
       logger.error(`Error sending the notifications(status: ${data.status}):`, error.message);
     }
+
+    try {
+      if (beforeData.price > data.price) {
+        logger.info('price drop alert');
+        // TODO: Commenting now until this is fully tested
+        const followersSnapshot = await firestoreDb
+          .collection("followers")
+          .where("follower", "==", data.user)
+          .get();
+
+        if (!followersSnapshot.empty) {
+          const timestamp = admin.firestore.Timestamp.now();
+          const batch = firestoreDb.batch();
+
+          followersSnapshot.forEach((doc) => {
+            const followerData = doc.data();
+            const newNotificationRef = firestoreDb.collection('notifications').doc();
+            const followerRef = firestoreDb.collection('users').doc(followerData.user);
+            batch.set(newNotificationRef, {
+              type: 'price_drop',
+              title: "Price Drop Alert",
+              recipientId: followerData.user,
+              message: "The seller has dropped the price for",
+              createdAt: timestamp,
+              isRead: false,
+              imageUrl: data.mainImage || null,
+              productSnapshot: {
+                id: productId,
+                title: data.title,
+              },
+              productId: productId,
+            });
+            batch.update(followerRef, {
+              notifications: admin.firestore.FieldValue.increment(1)
+            })
+          });
+
+          await batch.commit();
+          logger.info('Price drop notifications sent successfully.');
+        }
+      }
+    } catch (error) {
+      logger.error('Sending price drop notifications error:', error);
+    }
+
 
     db = connectToPostgres();
 
@@ -306,17 +370,15 @@ export const onShare = async (data, context) => {
     }
 
     const { productId, userId } = data;
-
-    await admin
-      .firestore()
+    const firestoreDb = admin.firestore();
+    await firestoreDb
       .collection("products")
       .doc(productId)
       .update({
         shares: admin.firestore.FieldValue.increment(1),
       });
 
-    await admin
-      .firestore()
+    await firestoreDb
       .collection("users")
       .doc(userId)
       .update({

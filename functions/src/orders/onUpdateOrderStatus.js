@@ -4,6 +4,7 @@ import stripe from "stripe";
 import { orderActions, statusTypes } from '../../order.config.js';
 import { sendNotificationToUser } from '../utils/index.js';
 import { sendDeliveredEmails, sendShippedEmails } from './sendOrderUpdateEmails.js';
+import { addNotification } from '../utils/userNotifications.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
 const { productStatus } = statusTypes;
@@ -185,6 +186,7 @@ const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
 };
 
 const updateProductStatus = async (productId, status) => {
+  console.log('Updating the product status', productId, status)
   const productDoc = productRef.doc(productId);
   await productDoc.update({
     status,
@@ -233,7 +235,7 @@ const handleDeliveredEmails = async (product, order) => {
 
 const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
   const status = productStatus.PENDING_SWAPSPOT_PICKUP;
-  if (isProductStatusUpdated(productId, status)) {
+  if (await isProductStatusUpdated(productId, status)) {
     return;
   }
 
@@ -251,7 +253,7 @@ const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
 
 const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
   const status = productStatus.COMPLETED;
-  if (isProductStatusUpdated(productId, status)) {
+  if (await isProductStatusUpdated(productId, status)) {
     return;
   }
 
@@ -282,11 +284,11 @@ const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
 };
 
 const handleLabelCreated = async ({ productId }) => {
-  const status = productStatus.LABEL_CREATED;
-  if (isProductStatusUpdated(productId, status)) {
+  const status = productStatus.LABEL_CREATED;  
+  if (await isProductStatusUpdated(productId, status)) {
     return;
-  }
-
+  }  
+  
   const product = await updateProductStatus(productId, status);
   await updateUserOrderStatus(product.buyer, productId, status);
 
@@ -301,7 +303,7 @@ const handleLabelCreated = async ({ productId }) => {
 
 const handleShipped = async ({ productId }) => {
   const status = productStatus.SHIPPED;
-  if (isProductStatusUpdated(productId, status)) {
+  if (await isProductStatusUpdated(productId, status)) {
     return;
   }
 
@@ -316,12 +318,19 @@ const handleShipped = async ({ productId }) => {
     }
   });
 
-  handleShippedEmails(product, order);
+  await handleShippedEmails(product, order);
+
+  await addNotification({
+    type: 'shipping_update',
+    recipientId: product.buyer,
+    productId,
+    orderId: order.id
+  })
 };
 
 const handleOutForDelivery = async ({ productId }) => {
   const status = productStatus.OUT_FOR_DELIVERY;
-  if (isProductStatusUpdated(productId, status)) {
+  if (await isProductStatusUpdated(productId, status)) {
     return;
   }
 
@@ -338,7 +347,7 @@ const handleOutForDelivery = async ({ productId }) => {
 
 const handleDelivered = async ({ productId, stripe }) => {
   const status = productStatus.COMPLETED;
-  if (isProductStatusUpdated(productId, status)) {
+  if (await isProductStatusUpdated(productId, status)) {
     return;
   }
   
@@ -367,6 +376,13 @@ const handleDelivered = async ({ productId, stripe }) => {
   });
 
   await handleDeliveredEmails(product, order);
+ 
+  await addNotification({
+    type: 'review_reminder',
+    recipientId: product.buyer,
+    productId: productId,
+    orderId: order.id
+  })
 };
 
 const actionHandlers = {

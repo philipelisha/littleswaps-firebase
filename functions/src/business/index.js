@@ -1,21 +1,9 @@
 import { logger } from 'firebase-functions';
 import admin from '../../adminConfig.js';
-const envToken = process.env.token;
 
-export const getMetrics = async (req, res, token = envToken) => {
-  logger.info("~~~~~~~~~~~~ START getMetrics ~~~~~~~~~~~~", {
-    body: req.body,
-    query: req.query,
-    headers: req.headers,
-    env: process.env.token
-  });
+export const getMetrics = async (args) => {
+  logger.info("~~~~~~~~~~~~ START getMetrics ~~~~~~~~~~~~");
   try {
-    const requestToken = req.query['token'];
-    if (!requestToken || requestToken !== token) {
-      logger.warn('Invalid webhook token');
-      return res.status(401).send('Unauthorized');
-    }
-
     const db = admin.firestore()
     const now = Math.floor(Date.now() / 1000); // Current timestamp in seconds
     const sevenDaysAgo = now - 7 * 24 * 60 * 60;
@@ -146,10 +134,10 @@ export const getMetrics = async (req, res, token = envToken) => {
 
     await db.collection("metrics").add(metricsData);
 
-    return res.status(200).json({ message: "Metrics stored successfully", metrics: metricsData });
+    return { message: "Metrics stored successfully", metrics: metricsData };
 
   } catch (error) {
     console.error("Error fetching metrics:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return { error: "Internal server error" };
   }
 }

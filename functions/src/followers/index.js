@@ -1,6 +1,7 @@
 import { logger } from "firebase-functions";
 import { getIdsFromEvent } from "../utils/index.js";
 import { updateFollowCounts } from "./updateFollowCounts.js";
+import { addNotification } from "../utils/userNotifications.js";
 
 export const createFollower = async (event) => {
   logger.info("~~~~~~~~~~~~ START createFollower ~~~~~~~~~~~~", event);
@@ -9,6 +10,12 @@ export const createFollower = async (event) => {
 
     await updateFollowCounts(user, 1);
     await updateFollowCounts(document, 1, true);
+
+    await addNotification({
+      type: 'new_follower',
+      recipientId: document,
+      userId: user,
+    })
 
     logger.info('Updated the follow counts after ADD:', `${user}_${document}`);
     return null;

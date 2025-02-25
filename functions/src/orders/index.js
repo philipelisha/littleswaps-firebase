@@ -3,15 +3,13 @@ import { https, logger } from 'firebase-functions';
 import { statusTypes } from '../../order.config.js';
 import stripe from "stripe";
 import { emailTemplates, sendEmail } from '../utils/index.js';
-import { addDays, format } from 'date-fns';
+import { addBusinessDays, format } from 'date-fns';
+import { onUpdateOrderStatus } from './onUpdateOrderStatus.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
-
 const db = admin.firestore();
 const userRef = db.collection("users")
 const productRef = db.collection("products")
-
-import { onUpdateOrderStatus } from './onUpdateOrderStatus.js';
 export const updateOrderStatus = async (data, context) => {
   logger.info("~~~~~~~~~~~~ START updateOrderStatus ~~~~~~~~~~~~", data);
   try {
@@ -80,6 +78,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
         : statusTypes.productStatus.PENDING_SHIPPING,
       purchaseDate: order.purchaseDate,
       purchasePriceDetails: order.purchasePriceDetails,
+      orderId: orderDoc.id,
       ...(isSwapSpot ? { selectedSwapSpot: order.selectedSwapSpot } : { selectedAddress: order.selectedAddress })
     };
 
@@ -110,8 +109,8 @@ export const createOrder = async (event, stripe = stripeSDK) => {
             date: format(new Date(order.purchaseDate.seconds * 1000), 'MM/dd/yyyy'),
             size: `${length}${distanceUnit} x ${width}${distanceUnit} x ${height}${distanceUnit}`,
             username: seller.username,
-            arrival_date: format(addDays(new Date(order.purchaseDate.seconds * 1000), 3), 'MM/dd/yyyy'),
-            pickup_date: format(addDays(new Date(order.purchaseDate.seconds * 1000), 6), 'MM/dd/yyyy'),
+            arrival_date: format(addBusinessDays(new Date(order.purchaseDate.seconds * 1000), 3), 'MM/dd/yyyy'),
+            pickup_date: format(addBusinessDays(new Date(order.purchaseDate.seconds * 1000), 6), 'MM/dd/yyyy'),
             order_number: orderId.slice(0, 6)
           }]
         }
@@ -146,6 +145,8 @@ export const createOrder = async (event, stripe = stripeSDK) => {
     ];
 
     await Promise.all(emailPromises);
+
+    
   } catch (error) {
     logger.error(`Error processing order creation: ${error.message}`, error);
   }

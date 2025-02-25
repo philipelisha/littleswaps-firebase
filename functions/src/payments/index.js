@@ -2,14 +2,17 @@ import { https, logger } from 'firebase-functions';
 import stripe from "stripe";
 import admin from '../../adminConfig.js';
 import { Shippo } from "shippo";
-import { orderActions } from '../../order.config.js';
+import { orderActions, statusTypes } from '../../order.config.js';
 import axios from 'axios';
 import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus.js';
+import { sendNotificationToUser } from '../utils/pushNotifications.js';
+import { addNotification } from '../utils/userNotifications.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
 const shippoKey = process.env.shippoKey;
 const envToken = process.env.token;
 const shippoSDK = new Shippo({ apiKeyHeader: shippoKey });
+const db = admin.firestore();
 
 export const addCardToPaymentIntent = async (data, context, stripe = stripeSDK) => {
   logger.info("~~~~~~~~~~~~ START addCardToPaymentIntent ~~~~~~~~~~~~", data);
@@ -553,7 +556,7 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
     const orderAction = statusMapping[statusKey];
     if (!orderAction) {
       logger.warn('Unmapped status received:', status);
-      return res.status(402).json({
+      return res.status(400).json({
         success: false,
         message: 'Unmapped tracking status received.',
       });
@@ -567,3 +570,105 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
     return res.status(500).send('Internal Server Error');
   }
 }
+
+const isBusinessDay = (date) => {
+  const day = date.getDay();
+  return day !== 0 && day !== 6;
+};
+
+const getBusinessDaysBetween = (startDate, endDate) => {
+  let count = 0;
+  let currentDate = new Date(startDate.setDate(startDate.getDate() + 1));
+  while (currentDate <= endDate) {
+    if (isBusinessDay(currentDate)) count++;
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  return count;
+};
+
+export const dailyShippingReminder = async () => {
+  const now = new Date();
+  const sixDaysAgo = new Date();
+  sixDaysAgo.setDate(now.getDate() - 7);
+
+  const snapshot = await db.collection("products")
+    .where("purchaseDate", ">=", sixDaysAgo)
+    .where("status", "==", statusTypes.productStatus.LABEL_CREATED)
+    .orderBy("purchaseDate", "asc")
+    .get();
+
+  if (snapshot.empty) {
+    console.log("No products requiring shipping reminders.");
+    return null;
+  }
+
+  const updates = [];
+  snapshot.forEach((doc) => {
+    const product = doc.data();
+    const purchaseDate = product.purchaseDate.toDate();
+    const businessDaysPassed = getBusinessDaysBetween(purchaseDate, now);
+
+    let type = null;
+    if (businessDaysPassed === 1) type = "seller_shipping_reminder_1";
+    else if (businessDaysPassed === 2) type = "seller_shipping_reminder_2";
+    else if (businessDaysPassed === 3) type = "seller_shipping_reminder_3";
+
+    logger.info('How many businessDaysPassed: ', businessDaysPassed)
+    logger.info('Sending notification type: ', type)
+    if (type) {
+      updates.push(
+        sendNotificationToUser({
+          userId: product.user,
+          type,
+          args: {
+            title: product.title,
+            date: purchaseDate.toISOString(),
+          },
+        })
+      );
+
+      if (type === "seller_shipping_reminder_3") {
+        updates.push(
+          addNotification({
+            type: "last_shipping_day",
+            recipientId: product.user,
+            productId: doc.id,
+          })
+        )
+      }
+    }
+
+    if (businessDaysPassed === 4) {
+      updates.push(
+        db.collection("users")
+          .doc(product.buyer)
+          .collection('orders')
+          .doc(product.orderId)
+          .update({
+            canRequestRefund: true
+          })
+      )
+      updates.push(
+        addNotification({
+          type: "buyer_refund_eligibility",
+          recipientId: product.buyer,
+          productId: doc.id,
+          orderId: product.orderId,
+        })
+      )
+      updates.push(
+        sendNotificationToUser({
+          userId: product.buyer,
+          type: "buyer_refund_eligibility",
+          args: {
+            title: product.title,
+          },
+        })
+      );
+    }
+  });
+
+  await Promise.all(updates);
+  console.log("Shipping reminders and refund notifications sent successfully.");
+  return null;
+};

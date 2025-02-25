@@ -71,6 +71,7 @@ const handleUserValueUpdates = async ({ beforeData, afterData, userId }) => {
     await syncProducts(userId, afterData);
     await syncFollowers(userId, afterData);
     await syncReviews(userId, afterData);
+    await syncNotifications(userId, afterData);
   }
 }
 
@@ -135,6 +136,25 @@ const syncProducts = async (userId, user) => {
 
     await batch.commit();
   }
+};
+
+const syncNotifications = async (userId, user) => {
+  const notificationSnapshot = await admin
+    .firestore()
+    .collection("notifications")
+    .where("userId", "==", userId)
+    .get();
+
+  const batch = admin.firestore().batch();
+  notificationSnapshot.forEach((doc) => {
+    const notificationRef = doc.ref;
+    batch.update(notificationRef, {
+      ...(doc.data().type === 'new_follower' && { imageUrl: user.profileImage }),
+      "userSnapshot.username": user.username,
+    });
+  });
+
+  await batch.commit();
 };
 
 const syncFollowers = async (userId, user) => {
