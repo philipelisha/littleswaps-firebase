@@ -1,5 +1,4 @@
 import { deleteUser } from './deleteUser';
-import { https } from 'firebase-functions';
 import admin from '../../adminConfig.js';
 
 jest.mock('firebase-functions', () => {
@@ -21,9 +20,11 @@ jest.mock('firebase-functions', () => {
 });
 
 jest.mock('../../adminConfig.js');
+const mockBatchUpdate = jest.fn();
 const mockBatchDelete = jest.fn();
 const mockBatchCommit = jest.fn();
 const mockBatch = {
+  update: mockBatchUpdate,
   delete: mockBatchDelete,
   commit: mockBatchCommit,
 };
@@ -31,6 +32,7 @@ const mockGet = jest.fn();
 const storageMock = {
   bucket: jest.fn().mockReturnThis(),
   file: jest.fn().mockReturnThis(),
+  getFiles: jest.fn().mockResolvedValue([[]]),
   delete: jest.fn().mockResolvedValue(),
 };
 const authMock = {
@@ -43,6 +45,10 @@ admin.firestore = jest.fn().mockReturnValue({
   batch: jest.fn().mockReturnValue(mockBatch),
   where: jest.fn().mockReturnThis(),
 });
+admin.firestore.FieldValue = {
+  arrayRemove: () => { },
+  increment: () => { },
+}
 admin.storage = jest.fn(() => storageMock);
 admin.auth = jest.fn(() => authMock);
 
@@ -52,90 +58,6 @@ describe('deleteUser', () => {
       uid: 'testUserId',
     },
   };
-
-  /* beforeEach(async () => {
-    mockGet.mockResolvedValueOnce([{
-      ref: 'username ref'
-    }])
-
-    mockGet.mockResolvedValueOnce({
-      docs: [
-        {
-          ref: 'product ref',
-          data: () => ({
-            purchaseDate: 'purchase date'
-          })
-        },
-        {
-          ref: {
-            collection: jest.fn().mockReturnThis(),
-            test: 'product ref',
-            listCollections: jest.fn().mockResolvedValue([])
-          },
-          data: () => ({
-            sellerId: 'testSellerId2',
-            productId: 'testProductId2',
-          })
-        }]
-    });
-
-    mockGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({
-        comments: ['product id 1']
-      }),
-    });
-
-    mockGet.mockResolvedValueOnce([{
-      ref: 'comment ref'
-    }]);
-    mockGet.mockResolvedValueOnce([{
-      ref: 'like ref'
-    }]);
-    mockGet.mockResolvedValueOnce([{
-      ref: 'follower ref'
-    }]);
-    mockGet.mockResolvedValueOnce([{
-      ref: 'following ref'
-    }]);
-
-    // Mock reviews
-    mockGet.mockResolvedValueOnce([{
-      data: () => ({}),
-    }]);
-    mockGet.mockResolvedValueOnce([{
-      ref: 'seller review ref'
-    }]);
-    mockGet.mockResolvedValueOnce([{
-      data: () => ({}),
-    }]);
-    mockGet.mockResolvedValueOnce([{
-      ref: 'buyer review ref'
-    }]);
-
-    // Mock user's subcollections
-    mockGet.mockResolvedValueOnce({
-      exists: true,
-      ref: {
-        test: 'user ref',
-        listCollections: jest.fn().mockResolvedValue([{
-          get: jest.fn().mockResolvedValue([{
-            ref: 'sub collection ref'
-          }]),
-        }]),
-      },
-    });
-
-    // Mock additional product-related references for deleteProductReferences
-    mockGet.mockResolvedValueOnce([{
-      ref: 'product-related ref',
-      data: () => ({
-        relatedDataField: 'dummyValue',
-      }),
-    }]);
-
-    mockGet.mockResolvedValueOnce([]);
-  }); */
 
   beforeEach(async () => {
     jest.spyOn(console, 'log').mockImplementation(() => {})
@@ -152,6 +74,12 @@ describe('deleteUser', () => {
       {
         ref: {
           collection: jest.fn().mockReturnThis(),
+          get: jest.fn().mockResolvedValueOnce([{
+            ref: 'product comment ref',
+            data: () => ({
+              user: 'user who commented on product'
+            })
+          }]),
           test: 'product ref',
           listCollections: jest.fn().mockResolvedValue([])
         },
@@ -159,6 +87,13 @@ describe('deleteUser', () => {
         })
       }]
     })
+    mockGet.mockResolvedValueOnce([{
+      ref: 'product like ref'
+    }])
+    mockGet.mockResolvedValueOnce([{
+      ref: 'product notifications ref'
+    }])
+
     mockGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -179,23 +114,40 @@ describe('deleteUser', () => {
     }])
     mockGet.mockResolvedValueOnce([
       {
-        data: () => ({})
+        ref: 'seller review ref',
+        data: () => ({
+          buyer: 'buyer id'
+        }),
       }
     ])
     mockGet.mockResolvedValueOnce([
       {
-        ref: 'seller review ref'
+        ref: 'buyer review ref',
       }
     ])
     mockGet.mockResolvedValueOnce([
       {
-        data: () => ({})
-      }
+        empty: false,
+        ref: 'notifications about the user 1',
+        data: () => ({
+          isRead: true
+        })
+      },
+      {
+        empty: false,
+        ref: 'notifications about the user 2',
+        data: () => ({
+          isRead: false
+        })
+      },
     ])
-
     mockGet.mockResolvedValueOnce([
       {
-        ref: 'buyer review ref'
+        empty: false,
+        ref: 'notifications for the user',
+        data: () => ({
+          isRead: true
+        })
       }
     ])
     mockGet.mockResolvedValueOnce({
@@ -257,6 +209,7 @@ describe('deleteUser', () => {
 
     expect(mockBatchDelete).toHaveBeenCalledWith({
       test: 'product ref',
+      get: expect.any(Function),
       listCollections: expect.any(Function),
       collection: expect.any(Function),
     })
@@ -283,17 +236,17 @@ describe('deleteUser', () => {
 
     await deleteUser(data, context);
 
-    expect(mockBatchDelete).toHaveBeenCalledWith('seller review ref')
-    expect(mockBatchDelete).toHaveBeenCalledWith('buyer review ref')
+    expect(mockBatchDelete).toHaveBeenCalledWith('follower ref')
+    expect(mockBatchDelete).toHaveBeenCalledWith('following ref')
   });
 
-  it('should delete the reviews', async () => {
+  it('should delete the reviews received but not reviews given', async () => {
     const data = {};
 
     await deleteUser(data, context);
 
-    expect(mockBatchDelete).toHaveBeenCalledWith('follower ref')
-    expect(mockBatchDelete).toHaveBeenCalledWith('following ref')
+    expect(mockBatchDelete).not.toHaveBeenCalledWith('seller review ref')
+    expect(mockBatchDelete).toHaveBeenCalledWith('buyer review ref')
   });
 
   it('should delete the user', async () => {

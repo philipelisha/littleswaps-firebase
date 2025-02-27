@@ -9,6 +9,7 @@ jest.mock("../utils", () => ({
   getIdsFromEvent: jest.fn(() => {
     return {document: "docId", user: "userId" }
   }),
+  addNotification: jest.fn(),
 }));
 jest.spyOn(logger, 'info').mockImplementation(() => {});
 

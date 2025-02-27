@@ -29,6 +29,9 @@ async function seedDatabase() {
       { name: 'Melissa & Doug', search: 'melissa & doug' },
       { name: 'Barbie', search: 'barbie' },
       { name: 'Baby Gap', search: 'baby gap' },
+      { name: 'Graco', search: 'graco' },
+      { name: 'Janie and Jack', search: 'janie and jack' },
+      { name: 'LEGO', search: 'lego' },
     ];
     for (const brand of brands) {
       await db.collection('brands').add(brand);
@@ -44,8 +47,15 @@ async function seedDatabase() {
       },
       {
         name: 'Clothing',
-        sizes: { default: ['XS', 'S', 'M', 'L', 'XL'], baby: ['NB', '3M', '6M', '9M', '12M'] },
-        subcategory: ['Tops', 'Bottoms', 'Outerwear', 'Sleepwear'],
+        sizes: { default: ['XS', 'S', 'M', 'L', 'XL'], Baby: ['NB', '3M', '6M', '9M', '12M'] },
+        subcategory: ['Tops', 'Bottoms', 'Outerwear', 'Sleepwear', 'Baby'],
+      },
+      {
+        name: 'Toys',
+        sizes: { default: ['OS'] },
+        subcategory: [
+          "Educational Toys", "Stuffed Animals", "Building Blocks", "Board Games", "Dolls and Action Figures", "Outdoor Toys", "Remote Control Toys", "Puzzles", "Arts and Crafts Kits", "Musical Toys", "Pretend Play & Dress-Up", "Vehicles & Playsets", "Electronic Toys", "Baby & Toddler Toys", "Water Toys", "Push Walkers", "Slides"
+        ],
       },
     ];
     for (const category of categories) {
@@ -76,7 +86,7 @@ async function seedDatabase() {
     for (const user of importedUsers) {
       await auth.createUser({
         email: user.email,
-        password: '12345678f', 
+        password: '111111',
         displayName: `${user.firstName} ${user.lastName}`,
       });
 

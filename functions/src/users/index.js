@@ -38,7 +38,6 @@ export const updateUser = async (event) => {
     const afterData = event.data.after.data();
     logger.info('beforeData', beforeData);
     logger.info('afterData', afterData);
-
     await handleEmailAddition(beforeData, afterData);
     await handleUserValueUpdates({ beforeData, afterData, userId });
   } catch (error) {

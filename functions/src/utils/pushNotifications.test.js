@@ -90,7 +90,27 @@ describe('sendNotificationToUser', () => {
       type: 'DELIVERED',
       notificationTitle: '📍 New Item Delivered!',
       body: 'Sample Product has arrived.'
-    }
+    },
+    {
+      type: 'buyer_refund_eligibility',
+      notificationTitle: "💰 Refund Available!",
+      body: `Your order for Sample Product has not been shipped. You may now request a refund if needed.`,
+    },
+    {
+      type: 'seller_shipping_reminder_3',
+      notificationTitle: "⚠️ Last Chance to Ship!",
+      body: `Urgent: Sample Product must be shipped today! The buyer can request a refund if it is not shipped.`,
+    },
+    {
+      type: 'seller_shipping_reminder_2',
+      notificationTitle: "🚀 Shipping Reminder!",
+      body: `Reminder: Sample Product still needs to be shipped. Please send it as soon as possible!`,
+    },
+    {
+      type: 'seller_shipping_reminder_1',
+      notificationTitle: "🚀 Don't Forget to Ship!",
+      body: `Your order for Sample Product was placed recently. Please ship it soon to keep the buyer happy!`,
+    },
   ];
 
   testCases.forEach(({ type, notificationTitle, body }) => {
@@ -117,7 +137,7 @@ describe('sendNotificationToUser', () => {
 
     await sendNotificationToUser({ userId: mockUserId, type: 'buyer_' + productStatus.SHIPPED, args: { title: mockTitle } });
 
-    expect(logger.error).toHaveBeenCalledWith('No user document found for user ID:', mockUserId);
+    expect(logger.warn).toHaveBeenCalledWith('No user document found for user ID:', mockUserId);
     expect(admin.messaging().send).not.toHaveBeenCalled();
   });
 
@@ -126,7 +146,7 @@ describe('sendNotificationToUser', () => {
 
     await sendNotificationToUser({ userId: mockUserId, type: 'buyer_' + productStatus.LABEL_CREATED, args: { title: mockTitle } });
 
-    expect(logger.error).toHaveBeenCalledWith('No FCM token found for user:', mockUserId);
+    expect(logger.warn).toHaveBeenCalledWith('No FCM token found for user:', mockUserId);
     expect(admin.messaging().send).not.toHaveBeenCalled();
   });
 

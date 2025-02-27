@@ -5,8 +5,7 @@ import { Shippo } from "shippo";
 import { orderActions, statusTypes } from '../../order.config.js';
 import axios from 'axios';
 import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus.js';
-import { sendNotificationToUser } from '../utils/pushNotifications.js';
-import { addNotification } from '../utils/userNotifications.js';
+import { sendNotificationToUser, addNotification } from '../utils/index.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
 const shippoKey = process.env.shippoKey;
@@ -355,7 +354,7 @@ export const createShipment = async (data, context, shippo = shippoSDK) => {
       parcels: [parcel],
       async: false,
       extra: {
-        qrCodeRequested: true
+        qr_code_requested: true,
       }
     });
 
@@ -465,6 +464,7 @@ export const saveShippingLabel = async (req, res, token = envToken) => {
       label_url,
       metadata: productId,
       tracking_url_provider,
+      qr_code_url,
       tracking_number,
       status
     } = req.body.data;
@@ -478,7 +478,7 @@ export const saveShippingLabel = async (req, res, token = envToken) => {
 
     const productsRef = admin.firestore().collection('products');
     await productsRef.doc(productId).update({
-      shippingLabel: label_url,
+      shippingLabel: qr_code_url || label_url,
       shippingUrl: tracking_url_provider,
       shippingNumber: tracking_number,
       shippingLabelCreating: false,

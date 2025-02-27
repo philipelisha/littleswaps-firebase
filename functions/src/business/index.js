@@ -1,35 +1,17 @@
 import { logger } from 'firebase-functions';
 import admin from '../../adminConfig.js';
 
-export const getMetrics = async (args) => {
+export const getMetrics = async () => {
   logger.info("~~~~~~~~~~~~ START getMetrics ~~~~~~~~~~~~");
   try {
     const db = admin.firestore()
-    const now = Math.floor(Date.now() / 1000); // Current timestamp in seconds
+    const now = Math.floor(Date.now() / 1000);
+    const today = now - 24 * 60 * 60;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60;
     const threeDaysAgo = now - 3 * 24 * 60 * 60;
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60;
     const twelveMonthsAgo = now - 365 * 24 * 60 * 60;
     const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
-
-    // Weekly Active Users (WAUs)
-    const activeUsersSnapshot = await db.collection("users")
-      .where("lastOnlineTimestamp", ">", sevenDaysAgo)
-      .count()
-      .get();
-    const weeklyActiveUsers = activeUsersSnapshot.data().count;
-
-    // New Listings Per Week
-    const newListingsSnapshot = await db.collection("products")
-      .where("created", ">", sevenDaysAgo)
-      .count()
-      .get();
-    const newListingsThisWeek = newListingsSnapshot.data().count;
-
-    // Transaction Volume
-    const purchaseSnapshot = await db.collection("products")
-      .where("purchaseDate", ">", twelveMonthsAgo)
-      .get();
     let purchaseData = {
       today: 0,
       last3Days: 0,
@@ -54,51 +36,87 @@ export const getMetrics = async (args) => {
       last12Months: 0,
       thisYear: 0,
     }
+
+    const [
+      activeUsersSnapshot,
+      newListingsSnapshot,
+      repeatUsersSnapshot,
+      totalUsersSnapshot,
+      newUsersSnapshot,
+      purchaseSnapshot,
+      orderRepeatUsersSnapshot,
+    ] = await Promise.all([
+      db.collection("users")
+        .where("lastOnlineTimestamp", ">", sevenDaysAgo)
+        .count()
+        .get(),
+      db.collection("products")
+        .where("created", ">", sevenDaysAgo)
+        .count()
+        .get(),
+      db.collection("users")
+        .where("totalListings", ">", 1)
+        .count()
+        .get(),
+      db.collection("users")
+        .count()
+        .get(),
+      db.collection("users")
+        .where("createdAt", ">", sevenDaysAgo)
+        .count()
+        .get(),
+      db.collection("products")
+        .where("purchaseDate", ">", twelveMonthsAgo)
+        .get(),
+      db.collection("users")
+        .get()
+    ])
+    const weeklyActiveUsers = activeUsersSnapshot.data().count;
+    const newListingsThisWeek = newListingsSnapshot.data().count;
+    const repeatListingUsers = repeatUsersSnapshot.data().count;
+    const totalUsers = totalUsersSnapshot.data().count;
+    const newUsersThisWeek = newUsersSnapshot.data().count;
+
     purchaseSnapshot.forEach(doc => {
       const data = doc.data()
-      const purchaseDate = data.purchaseDate.seconds; // Timestamp format
-      const { commission = 0, tax = 0 } = data.purchasePriceDetails || {};
-
-      if (purchaseDate >= now - 24 * 60 * 60) {
+      const purchaseDate = data.purchaseDate.seconds;
+      const {
+        commission: purchaseComission = 0,
+        tax: purchaseTax = 0
+      } = data.purchasePriceDetails || {};
+      
+      if (purchaseDate >= today) {
         purchaseData.today++;
-        commission.today += commission;
-        tax.today += tax;
+        commission.today += purchaseComission;
+        tax.today += purchaseTax;
       }
       if (purchaseDate >= threeDaysAgo) {
         purchaseData.last3Days++;
-        commission.last3Days += commission;
-        tax.last3Days += tax;
+        commission.last3Days += purchaseComission;
+        tax.last3Days += purchaseTax;
       }
       if (purchaseDate >= sevenDaysAgo) {
         purchaseData.last7Days++;
-        commission.last7Days += commission;
-        tax.last7Days += tax;
+        commission.last7Days += purchaseComission;
+        tax.last7Days += purchaseTax;
       }
       if (purchaseDate >= thirtyDaysAgo) {
         purchaseData.last30Days++;
-        commission.last30Days += commission;
-        tax.last30Days += tax;
+        commission.last30Days += purchaseComission;
+        tax.last30Days += purchaseTax;
       }
       if (purchaseDate >= twelveMonthsAgo) {
         purchaseData.last12Months++;
-        commission.last12Months += commission;
-        tax.last12Months += tax;
+        commission.last12Months += purchaseComission;
+        tax.last12Months += purchaseTax;
       }
       if (purchaseDate >= startOfYear) {
         purchaseData.thisYear++;
-        commission.thisYear += commission;
-        tax.thisYear += tax;
+        commission.thisYear += purchaseComission;
+        tax.thisYear += purchaseTax;
       }
     });
 
-    // Repeat Usage Rate
-    const repeatUsersSnapshot = await db.collection("users")
-      .where("totalListings", ">", 1)
-      .count()
-      .get();
-    const repeatListingUsers = repeatUsersSnapshot.data().count;
-
-    const orderRepeatUsersSnapshot = await db.collection("users").get();
     let repeatOrderUsers = 0;
     for (const userDoc of orderRepeatUsersSnapshot.docs) {
       const ordersSnapshot = await db.collection("users")
@@ -108,16 +126,6 @@ export const getMetrics = async (args) => {
         .get();
       if (ordersSnapshot.data().count > 1) repeatOrderUsers++;
     }
-
-    // Total Registered Users + New Users Per Week
-    const totalUsersSnapshot = await db.collection("users").count().get();
-    const totalUsers = totalUsersSnapshot.data().count;
-
-    const newUsersSnapshot = await db.collection("users")
-      .where("createdAt", ">", sevenDaysAgo)
-      .count()
-      .get();
-    const newUsersThisWeek = newUsersSnapshot.data().count;
 
     const metricsData = {
       timestamp: admin.firestore.Timestamp.now(),
@@ -135,7 +143,6 @@ export const getMetrics = async (args) => {
     await db.collection("metrics").add(metricsData);
 
     return { message: "Metrics stored successfully", metrics: metricsData };
-
   } catch (error) {
     console.error("Error fetching metrics:", error);
     return { error: "Internal server error" };

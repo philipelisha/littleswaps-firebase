@@ -2,10 +2,11 @@ import { logger } from "firebase-functions";
 import { addReviewSnippet } from "./addReviewSnippet.js";
 import admin from '../../adminConfig.js';
 
-const db = admin.firestore();
+
 export const createReview = async (event) => {
   logger.info("~~~~~~~~~~~~ START createReview ~~~~~~~~~~~~", event);
-
+  
+  const db = admin.firestore();
   const { userId } = event.params;
   const data = event.data.data()
   const { rating } = data;

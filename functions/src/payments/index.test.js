@@ -621,6 +621,9 @@ describe("createShipment", () => {
       },
       parcels: [{}],
       async: false,
+      extra: {
+        qr_code_requested: true,
+      },
     });
   });
 
@@ -659,6 +662,9 @@ describe("createShipment", () => {
       },
       parcels: [{}],
       async: false,
+      extra: {
+        qr_code_requested: true,
+      },
     });
     expect(logger.error).toHaveBeenCalledWith(
       JSON.stringify(error)
@@ -694,7 +700,7 @@ describe("createLabel", () => {
     })
     expect(shippoMock.transactions.create).toHaveBeenCalledWith({
       rate: 'rateid',
-      label_file_type: "PDF",
+      label_file_type: "PNG",
       metadata: 'productid',
       labelFileType: 'PNG'
     });
@@ -724,7 +730,7 @@ describe("createLabel", () => {
     })
     expect(shippoMock.transactions.create).toHaveBeenCalledWith({
       rate: 'rateid',
-      label_file_type: "PDF",
+      label_file_type: "PNG",
       metadata: 'productid',
       labelFileType: 'PNG'
     });
@@ -912,24 +918,25 @@ describe('orderTrackingUpdate', () => {
     expect(mockRes.send).toHaveBeenCalledWith('Unauthorized');
   });
 
-  it('should return 400 if product ID or tracking status is missing', async () => {
+  it('should return 400 if tracking status is missing', async () => {
     mockReq.body.data.metadata = '';
+    mockReq.body.data.tracking_status = undefined;
     mockReq.query.token = 'valid_token';
     await orderTrackingUpdate(mockReq, mockRes, envToken);
 
     expect(mockRes.status).toHaveBeenCalledWith(400);
     expect(mockRes.json).toHaveBeenCalledWith({
       success: false,
-      message: 'Missing productId or tracking status.',
+      message: 'Missing tracking status.',
     });
   });
 
   it('should return 400 for unmapped tracking status', async () => {
     mockReq.body.data.metadata = 'productid';
-    mockReq.body.data.tracking_status.substatus = 'unknown_status';
+    mockReq.body.data.tracking_status = { substatus: { code: 'unknown_status' } };
     await orderTrackingUpdate(mockReq, mockRes, envToken);
 
-    expect(mockRes.status).toHaveBeenCalledWith(402);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
     expect(mockRes.json).toHaveBeenCalledWith({
       success: false,
       message: 'Unmapped tracking status received.',

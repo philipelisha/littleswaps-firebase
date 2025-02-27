@@ -1,4 +1,5 @@
 import { orderActions, statusTypes } from '../../order.config.js';
+import { logger } from 'firebase-functions';
 const { productStatus } = statusTypes;
 
 export const getNotificationPayload = (type, args) => {

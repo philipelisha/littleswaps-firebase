@@ -51,7 +51,7 @@ jest.mock('./sendOrderUpdateEmails.js', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
 });
-
+jest.spyOn(console, 'log').mockImplementation(() => {})
 describe('onUpdateOrderStatus', () => {
   const mockSwapSpotId = 'swapSpot789';
   const mockProductId = 'product456';
@@ -115,6 +115,10 @@ describe('onUpdateOrderStatus', () => {
     beforeEach(() => {
       mockGet
         .mockResolvedValueOnce({
+          exists: true,
+          data: jest.fn(() => mockProductData),
+        })
+        .mockResolvedValueOnce({
           data: jest.fn(() => mockProductData),
         })
         .mockResolvedValueOnce({
@@ -162,6 +166,10 @@ describe('onUpdateOrderStatus', () => {
     let mockOrderUpdate = jest.fn();
     beforeEach(() => {
       mockGet
+        .mockResolvedValueOnce({
+          exists: true,
+          data: jest.fn(() => mockProductData),
+        })
         .mockResolvedValueOnce({
           data: jest.fn(() => mockProductData),
         })
@@ -228,6 +236,10 @@ describe('onUpdateOrderStatus', () => {
     beforeEach(() => {
       mockGet
         .mockResolvedValueOnce({
+          exists: true,
+          data: jest.fn(() => mockProductData),
+        })
+        .mockResolvedValueOnce({
           data: jest.fn(() => mockProductData),
         })
         .mockResolvedValueOnce({
@@ -292,6 +304,10 @@ describe('onUpdateOrderStatus', () => {
     let mockSwapSpotUpdate = jest.fn();
     beforeEach(() => {
       mockGet
+        .mockResolvedValueOnce({
+          exists: true,
+          data: jest.fn(() => mockProductData),
+        })
         .mockResolvedValueOnce({
           exists: true,
           empty: false,
@@ -367,6 +383,10 @@ describe('onUpdateOrderStatus', () => {
     };
     beforeEach(() => {
       mockGet
+        .mockResolvedValueOnce({
+          exists: true,
+          data: jest.fn(() => mockProductData),
+        })
         .mockResolvedValueOnce({
           data: jest.fn(() => mockProductData),
         })
@@ -458,6 +478,10 @@ describe('onUpdateOrderStatus', () => {
       mockGet
         .mockResolvedValueOnce({
           exists: true,
+          data: jest.fn(() => mockProductData),
+        })
+        .mockResolvedValueOnce({
+          exists: true,
           empty: false,
           docs: [
             {
@@ -536,6 +560,6 @@ describe('onUpdateOrderStatus', () => {
         }
       })
       expect(result).toBeTruthy();
-      });
     });
   });
+});

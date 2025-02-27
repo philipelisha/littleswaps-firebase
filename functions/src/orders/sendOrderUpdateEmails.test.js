@@ -24,6 +24,9 @@ const mockProductData = {
   title: 'Test Product',
   shippingNumber: 'shippingNumber',
   price: 100,
+  purchasePriceDetails: {
+    commission: 10,
+  },
   colors: ['red', 'green'],
   size: 'OS',
 };
@@ -147,7 +150,7 @@ describe('sendDeliveredEmails', () => {
         product: [
           {
             name: mockProductData.title,
-            earned: mockProductData.price,
+            earned: '90.00',
             arrival_date: today,
             order_number: mockOrderData.product.slice(0, 6),
           }

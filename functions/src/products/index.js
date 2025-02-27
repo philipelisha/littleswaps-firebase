@@ -108,7 +108,6 @@ export const createProduct = async (event) => {
 
 export const updateProduct = async (event) => {
   logger.info("~~~~~~~~~~~~ START updateProduct ~~~~~~~~~~~~", event);
-  // TODO: should update the reviews that reference this product if appropriate fields are changed
   let db;
   try {
     const beforeData = event.data.before.data();
@@ -183,7 +182,6 @@ export const updateProduct = async (event) => {
     try {
       if (beforeData.price > data.price) {
         logger.info('price drop alert');
-        // TODO: Commenting now until this is fully tested
         const followersSnapshot = await firestoreDb
           .collection("followers")
           .where("follower", "==", data.user)

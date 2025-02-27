@@ -23,33 +23,9 @@ export const deleteUser = https.onCall(users.deleteUser);
 export const createFollower = onDocumentCreated('/followers/{followerId}', followers.createFollower);
 export const deleteFollower = onDocumentDeleted('/followers/{followerId}', followers.deleteFollower);
 // products
-export const createProduct = onDocumentCreated(
-  {
-    region: "us-central1",
-    vpcConnector: "update-product-postgres",
-    vpcConnectorEgressSettings: "PRIVATE_RANGES_ONLY",
-  },
-  '/products/{productId}',
-  products.createProduct
-);
-export const updateProduct = onDocumentUpdated(
-  {
-    region: "us-central1",
-    vpcConnector: "update-product-postgres",
-    vpcConnectorEgressSettings: "PRIVATE_RANGES_ONLY",
-  },
-  '/products/{productId}',
-  products.updateProduct
-);
-export const deleteProduct = onDocumentDeleted(
-  {
-    region: "us-central1",
-    vpcConnector: "update-product-postgres",
-    vpcConnectorEgressSettings: "PRIVATE_RANGES_ONLY",
-  },
-  '/products/{productId}',
-  products.deleteProduct
-);
+export const createProduct = onDocumentCreated('/products/{productId}', products.createProduct);
+export const updateProduct = onDocumentUpdated('/products/{productId}', products.updateProduct);
+export const deleteProduct = onDocumentDeleted('/products/{productId}', products.deleteProduct);
 export const shareProduct = https.onCall(products.onShare);
 export const searchProducts = functions
   .region("us-central1")
@@ -65,10 +41,7 @@ export const createReview = onDocumentCreated('/users/{userId}/reviews/{reviewId
 export const createOrder = onDocumentCreated('/users/{userId}/orders/{orderId}', orders.createOrder);
 export const updateOrderStatus = https.onCall(orders.updateOrderStatus);
 export const onNewNotification = https.onCall(userNotifications.onNewNotification);
-export const dailyShippingReminder = pubsub
-  .schedule("0 9 * * 1-5")
-  .timeZone("America/New_York")
-  .onRun(payments.dailyShippingReminder);
+export const dailyShippingReminder = pubsub.schedule("0 9 * * 1-5").timeZone("America/New_York").onRun(payments.dailyShippingReminder);
 // export const dailyShippingReminderTest = https.onRequest(async (req, res) => {
 //   const response = await payments.dailyShippingReminder()
 //   res.status(200).json(response)
@@ -95,10 +68,7 @@ export const saveShippingLabel = https.onRequest(payments.saveShippingLabel);
 export const orderTrackingUpdate = https.onRequest(payments.orderTrackingUpdate);
 
 // ### BUSINESS ### 
-export const getWeeklyMetrics = pubsub
-  .schedule("every Monday 09:00")
-  .timeZone("America/New_York")
-  .onRun(business.getMetrics);
+export const getWeeklyMetrics = pubsub.schedule("every Monday 09:00").timeZone("America/New_York").onRun(business.getMetrics);
 // export const getWeeklyMetricsTest = https.onRequest(async (req,res) => {
 //   const response = await payments.getMetrics()
 //   res.status(200).json(response)

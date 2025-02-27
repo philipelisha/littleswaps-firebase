@@ -24,7 +24,8 @@ export const deleteUser = async (data, context) => {
     await deleteLikes(db, batch, userId);
     await deleteFollowersAndFollowings(db, batch, userId);
     await deleteReviews(db, batch, userId);
-    await deleteUserDocument(db, userId, batch);
+    await deleteUserNotifications(db, batch, userId);
+    await deleteUserDocument(db, batch, userId);
     await deleteUserAuthProfile(userId);
 
     await batch.commit();
@@ -64,7 +65,7 @@ const deleteUsername = async (db, userId, batch) => {
     batch.delete(userNameDoc.ref);
   });
 
-  console.log(`Queued removal of username with length: ${userNameSnapshot.length}`);
+  console.log(`Queued removal of username with length: ${userNameSnapshot.size}`);
 };
 
 const deleteProducts = async (db, batch, userId) => {
@@ -74,7 +75,6 @@ const deleteProducts = async (db, batch, userId) => {
 
   for (const doc of productsSnapshot.docs) {
     const productData = doc.data();
-
     if (!productData.purchaseDate) {
       await deleteProductReferences({
         batch,
@@ -86,6 +86,10 @@ const deleteProducts = async (db, batch, userId) => {
       batch.delete(doc.ref);
 
       console.log(`Queued removal of product with product id: ${doc.id}`);
+    } else {
+      batch.update(doc.ref, {
+        userDeleted: true
+      })
     }
   }
 };
@@ -101,7 +105,7 @@ const deleteComments = async (db, batch, userId) => {
         commentsSnapshot.forEach((commentDoc) => {
           batch.delete(commentDoc.ref);
         });
-        console.log(`Queued removal of comments given for document with userID: ${userId}; like length ${commentsSnapshot.length}`);
+        console.log(`Queued removal of comments given for document with userID: ${userId}; like length ${commentsSnapshot.size}`);
       }
     }
   }
@@ -114,7 +118,7 @@ const deleteLikes = async (db, batch, userId) => {
   likesSnapshot.forEach((likeDoc) => {
     batch.delete(likeDoc.ref);
   });
-  console.log(`Queued removal of likes for document with userID: ${userId}; like length ${likesSnapshot.length}`);
+  console.log(`Queued removal of likes for document with userID: ${userId}; like length ${likesSnapshot.size}`);
 };
 
 const deleteFollowersAndFollowings = async (db, batch, userId) => {
@@ -130,32 +134,12 @@ const deleteFollowersAndFollowings = async (db, batch, userId) => {
   });
 
   console.log(`Queued removal of followers/following for document with userID: ${userId}; 
-    following length: ${followerSnapshot.length}follower length ${followingSnapshot.length}`);
+    following length: ${followerSnapshot.size}follower length ${followingSnapshot.size}`);
 };
 
 const deleteReviews = async (db, batch, userId) => {
-  const reviewsGivenSnapshot = await db.collection("users")
-    .doc(userId)
-    .collection("reviewsGiven")
-    .get();
+  // Not deleting reviews that were given only reviews received
   const promises = [];
-
-  reviewsGivenSnapshot.forEach((reviewDoc) => {
-    const reviewData = reviewDoc.data();
-    const sellerDoc = db.collection("users")
-      .doc(reviewData.seller);
-
-    const promise = sellerDoc.collection("reviews")
-      .where("buyer", "==", userId)
-      .get()
-      .then((reviewsSnapshot) => {
-        reviewsSnapshot.forEach((sellerReviewDoc) => {
-          batch.delete(sellerReviewDoc.ref);
-        });
-        console.log(`Queued removal of reviews given for documents with userID: ${userId}`);
-      });
-    promises.push(promise);
-  });
 
   const reviewsSnapshot = await db.collection("users")
     .doc(userId)
@@ -181,7 +165,47 @@ const deleteReviews = async (db, batch, userId) => {
   await Promise.all(promises);
 };
 
-const deleteUserDocument = async (db, userId, batch) => {
+const deleteUserNotifications = async (db, batch, userId) => {
+  const notificationsRef = db.collection('notifications');
+  const usersRef = db.collection('users');
+
+  const [snapshotOthers, snapshotOwner] = await Promise.all([
+    notificationsRef.where('userId', '==', userId).get(),
+    notificationsRef.where('recipientId', '==', userId).get()
+  ]);
+
+  if (snapshotOthers.empty && snapshotOwner.empty) {
+    console.log(`No notifications found for user: ${userId}`);
+    return;
+  }
+
+  let unreadNotificationsByRecipient = {};
+
+  snapshotOthers.forEach((doc) => {
+    const data = doc.data();
+    if (!data.isRead) {
+      const recipientId = data.recipientId;
+      if (recipientId) {
+        unreadNotificationsByRecipient[recipientId] = (unreadNotificationsByRecipient[recipientId] || 0) + 1;
+      }
+    }
+    batch.delete(doc.ref);
+  });
+
+  snapshotOwner.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  Object.entries(unreadNotificationsByRecipient).forEach(([recipientId, count]) => {
+    batch.update(usersRef.doc(recipientId), {
+      notifications: admin.firestore.FieldValue.increment(-count)
+    });
+  });
+
+  console.log(`Queued deletion of snapshotOthers: ${snapshotOthers.size} and snapshotOwner: ${snapshotOwner.size} notifications for user: ${userId}`);
+};
+
+const deleteUserDocument = async (db, batch, userId) => {
   const userDoc = await db.collection("users")
     .doc(userId)
     .get();
@@ -211,7 +235,7 @@ const deleteSubcollections = async (docRef, batch) => {
       console.log(`Queued removal of subcollection.`);
     }
   } catch (error) {
-    console.warn(`Failed to delete subcollections for userId: ${userId}`, error);
+    console.warn(`Failed to delete subcollections for userId: ${docRef.id}`, error);
   }
 };
 
@@ -227,6 +251,7 @@ const deleteProductReferences = async ({
 
     await removeProductImages(currentUser, productUniqueKey);
     await removeLikes(db, productId, batch);
+    await removeNotifications(db, productId, batch);
     await removeProductFromUserComments({
       db,
       productRef,
@@ -260,10 +285,21 @@ const removeLikes = async (db, productId, batch) => {
   console.log(`Queued deletion of likes for product: ${productId}`);
 };
 
+const removeNotifications = async (db, productId, batch) => {
+  const notificationsRef = db.collection('notifications');
+  const snapshot = await notificationsRef.where('productId', '==', productId).get();
+
+  snapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  console.log(`Queued deletion of notifications for product: ${productId}`);
+};
+
 const removeProductFromUserComments = async ({ db, productRef, productId, batch }) => {
   const commentsRef = productRef.collection('comments');
   const commentsSnapshot = await commentsRef.get();
-
+  
   commentsSnapshot.forEach((commentDoc) => {
     const comment = commentDoc.data();
     const userRef = db.collection('users').doc(comment.user);

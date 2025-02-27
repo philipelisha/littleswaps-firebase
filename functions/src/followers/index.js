@@ -1,7 +1,6 @@
 import { logger } from "firebase-functions";
-import { getIdsFromEvent } from "../utils/index.js";
+import { getIdsFromEvent, addNotification } from "../utils/index.js";
 import { updateFollowCounts } from "./updateFollowCounts.js";
-import { addNotification } from "../utils/userNotifications.js";
 
 export const createFollower = async (event) => {
   logger.info("~~~~~~~~~~~~ START createFollower ~~~~~~~~~~~~", event);

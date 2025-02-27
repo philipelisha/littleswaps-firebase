@@ -2,12 +2,19 @@ import { createUser, defaultProfileImage, updateUser } from './index.js';
 import admin from '../../adminConfig.js';
 import { sendEmail } from '../utils/index.js';
 import { logger } from 'firebase-functions';
+import { emailTemplates } from '../utils/emails';
 
 jest.mock('../../adminConfig.js');
-jest.mock('../utils/index.js', () => ({
-  ...jest.requireActual('../utils/index.js'),
-  sendEmail: jest.fn().mockResolvedValue(),
-}));
+jest.mock('../utils/index.js', () => {
+  const { emailTemplates } = require('../utils/emails');
+  return {
+    // ...jest.requireActual('../utils/index.js'),
+    emailTemplates,
+    sendEmail: jest.fn().mockResolvedValue(),
+    addNotification: jest.fn().mockResolvedValue(),
+    sendNotificationToUser: jest.fn().mockResolvedValue(),
+  }
+});
 jest.mock('firebase-functions', () => ({
   logger: {
     error: jest.fn(),
@@ -87,7 +94,7 @@ describe('User Functions', () => {
 
     expect(sendEmail).toHaveBeenCalledWith({
       email: 'test@example.com',
-      templateId: expect.any(String),
+      templateId: emailTemplates.USER_SIGN_UP,
       data: expect.objectContaining({ firstName: 'John' }),
     });
     expect(logger.info).toHaveBeenCalledWith('beforeData', { email: null });

@@ -1,3 +1,4 @@
+import { logger } from 'firebase-functions';
 import {createLike, deleteLike} from "./";
 import {updateProductLike} from "./updateProductLike";
 
@@ -10,7 +11,7 @@ jest.mock("../utils", () => ({
     return {document: "docId", user: "userId" }
   }),
 }));
-
+jest.spyOn(logger, 'info').mockImplementation(() => {});
 describe('Like Functions', () => {
   beforeEach(() => {
     jest.clearAllMocks();

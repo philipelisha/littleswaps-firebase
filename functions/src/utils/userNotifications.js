@@ -1,7 +1,6 @@
 import admin from '../../adminConfig.js';
 import { https, logger } from 'firebase-functions';
 
-const db = admin.firestore();
 
 export const addNotification = async ({
   type,
@@ -11,6 +10,7 @@ export const addNotification = async ({
   commentId,
   orderId
 }) => {
+  const db = admin.firestore();
   try {
     const timestamp = admin.firestore.Timestamp.now();
     const notificationRef = db.collection("notifications").doc();

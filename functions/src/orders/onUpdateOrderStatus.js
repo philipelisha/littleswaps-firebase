@@ -2,9 +2,8 @@ import admin from '../../adminConfig.js';
 import { https, logger } from 'firebase-functions';
 import stripe from "stripe";
 import { orderActions, statusTypes } from '../../order.config.js';
-import { sendNotificationToUser } from '../utils/index.js';
+import { sendNotificationToUser, addNotification } from '../utils/index.js';
 import { sendDeliveredEmails, sendShippedEmails } from './sendOrderUpdateEmails.js';
-import { addNotification } from '../utils/userNotifications.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
 const { productStatus } = statusTypes;
@@ -16,12 +15,12 @@ const productRef = db.collection("products")
 const isProductStatusUpdated = async (productId, status) => {
   const productDoc = productRef.doc(productId);
   const productSnapshot = await productDoc.get();
-
+  
   if (!productSnapshot.exists) {
     logger.warn(`Product ${productId} not found.`);
     return true;
   }
-
+  
   const product = productSnapshot.data();
 
   if (product.status === status) {
