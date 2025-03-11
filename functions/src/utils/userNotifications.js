@@ -8,7 +8,8 @@ export const addNotification = async ({
   productId,
   userId,
   commentId,
-  orderId
+  orderId,
+  productBundleAmount,
 }) => {
   const db = admin.firestore();
   try {
@@ -105,11 +106,12 @@ export const addNotification = async ({
     if (messageTemplates[type]) {
       notificationData.title = messageTemplates[type].title;
       notificationData.message = messageTemplates[type].message;
+      notificationData.productBundleAmount = productBundleAmount || 0;
     }
 
+    console.log("Addding notification for user:", notificationData);
     await notificationRef.set(notificationData);
 
-    console.log("Updating notifications count for user:", recipientId);
     await db.collection('users').doc(recipientId).update({
       notifications: admin.firestore.FieldValue.increment(1)
     })

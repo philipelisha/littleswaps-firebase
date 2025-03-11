@@ -6,8 +6,8 @@ export const sendNotificationToUser = async ({ userId, type, args }) => {
   const payload = getNotificationPayload(type, args);
 
   if (payload) {
-    logger.info('payload: ', JSON.stringify(payload))
-    logger.info('userId: ', JSON.stringify(userId))
+    // logger.info('payload: ', JSON.stringify(payload))
+    // logger.info('userId: ', JSON.stringify(userId))
     return await sendNotification(userId, payload);
   }
 }

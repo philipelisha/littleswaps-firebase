@@ -42,10 +42,11 @@ export const createOrder = onDocumentCreated('/users/{userId}/orders/{orderId}',
 export const updateOrderStatus = https.onCall(orders.updateOrderStatus);
 export const onNewNotification = https.onCall(userNotifications.onNewNotification);
 export const dailyShippingReminder = pubsub.schedule("0 9 * * 1-5").timeZone("America/New_York").onRun(payments.dailyShippingReminder);
-// export const dailyShippingReminderTest = https.onRequest(async (req, res) => {
-//   const response = await payments.dailyShippingReminder()
-//   res.status(200).json(response)
-// });
+// TODO: remove this test function
+export const dailyShippingReminderTest = https.onRequest(async (req, res) => {
+  const response = await payments.dailyShippingReminder()
+  res.status(200).json(response)
+});
 
 // ### STRIPE ###
 export const addCardToPaymentIntent = https.onCall(payments.addCardToPaymentIntent);
@@ -62,7 +63,6 @@ export const failedPaymentIntent = https.onRequest(payments.failedPaymentIntent)
 // ### SHIPPO ###
 export const validateAddress = https.onCall(payments.validateAddress);
 export const createShipment = https.onCall(payments.createShipment);
-export const createLabel = https.onCall(payments.createLabel);
 // webhook
 export const saveShippingLabel = https.onRequest(payments.saveShippingLabel);
 export const orderTrackingUpdate = https.onRequest(payments.orderTrackingUpdate);

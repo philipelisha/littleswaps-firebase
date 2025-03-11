@@ -369,23 +369,22 @@ export const createShipment = async (data, context, shippo = shippoSDK) => {
   }
 };
 
-export const createLabel = async (data, context, shippo = shippoSDK) => {
-  logger.info('~~~~~~~~~~~~ START createLabel ~~~~~~~~~~~~', data)
-  if (!context.auth) {
-    throw new https.HttpsError("unauthenticated", "Authentication required.");
-  }
-
-  const { rateId, productId } = data;
+export const createLabel = async ({ rateId, sellerId, salesId }, shippo = shippoSDK) => {
+  logger.info('create label', { rateId, salesId, sellerId })
 
   try {
-    await admin.firestore().collection("products").doc(productId).update({
-      shippingLabelCreating: true
-    });
+    await db.collection("users")
+      .doc(sellerId)
+      .collection('sales')
+      .doc(salesId)
+      .update({
+        shippingLabelCreating: true
+      });
 
     const transaction = await shippo.transactions.create({
       rate: rateId,
       label_file_type: "PNG",
-      metadata: productId,
+      metadata: `${sellerId}_${salesId}`,
       labelFileType: 'PNG'
     });
 
@@ -462,31 +461,55 @@ export const saveShippingLabel = async (req, res, token = envToken) => {
 
     const {
       label_url,
-      metadata: productId,
+      metadata: userAndSaleId,
       tracking_url_provider,
       qr_code_url,
       tracking_number,
       status
     } = req.body.data;
 
-    if (!productId || !label_url || status !== 'SUCCESS') {
+    if (!userAndSaleId || !label_url || status !== 'SUCCESS') {
       return res.status(400).json({
         success: false,
-        message: 'Missing product ID or label URL.',
+        message: 'Missing sale ID or label URL.',
       });
     }
+    const [userId, saleId] = userAndSaleId.split('_');
 
-    const productsRef = admin.firestore().collection('products');
-    await productsRef.doc(productId).update({
+    const saleRef = db
+      .collection('users')
+      .doc(userId)
+      .collection('sales');
+    const saleDoc = saleRef.doc(saleId);
+    await saleDoc.update({
       shippingLabel: qr_code_url || label_url,
       shippingUrl: tracking_url_provider,
       shippingNumber: tracking_number,
       shippingLabelCreating: false,
     });
 
+    const saleSnap = await saleDoc.get();
+
+    if (saleSnap.exists) {
+      const saleData = saleSnap.data();
+      const batch = db.batch();
+
+      const productIds = saleData.productBundle?.length
+        ? saleData.productBundle.map((p) => p.productId)
+        : [saleData.product?.productId];
+
+      productIds.forEach((productId) => {
+        if (!productId) return;
+        const productRef = db.collection('products').doc(productId);
+        batch.update(productRef, { shippingNumber: tracking_number });
+      });
+
+      await batch.commit();
+    }
+    
     await onUpdateOrderStatus({
       type: orderActions.LABEL_CREATED,
-      productId
+      userAndSaleId
     });
 
     return res.status(200).json({
@@ -517,7 +540,7 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
       return res.status(401).send('Unauthorized');
     }
 
-    let { metadata: productId, tracking_status, tracking_number } = req.body.data;
+    let { metadata: userAndSaleId, tracking_status, tracking_number } = req.body.data;
     if (!tracking_status) {
       logger.warn('No Tracking Status Provided');
       return res.status(400).json({
@@ -526,14 +549,15 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
       });
     }
 
-    if (!productId) {
-      logger.warn('No Meta Data Provided, looking up by tracking number')
-      const productSnapshot = await admin.firestore()
+    if (!userAndSaleId) {
+      logger.warn('No Meta Data Provided, looking up by tracking number: ', tracking_number)
+      const productSnapshot = await db
         .collection('products')
         .where('shippingNumber', '==', tracking_number)
         .get();
       if (!productSnapshot.empty) {
-        productId = productSnapshot.docs[0].id;
+        const product = productSnapshot.docs[0].data();
+        userAndSaleId = `${product.user}_${product.salesId}`;
       } else {
         return res.status(400).json({
           success: false,
@@ -562,7 +586,7 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
       });
     }
 
-    await onUpdateOrderStatus({ type: orderAction, productId });
+    await onUpdateOrderStatus({ type: orderAction, userAndSaleId });
 
     return res.status(200).send('Webhook received and logged');
   } catch (error) {
@@ -605,6 +629,10 @@ export const dailyShippingReminder = async () => {
   const updates = [];
   snapshot.forEach((doc) => {
     const product = doc.data();
+    if (product.isBundle && !product.firstBundleProduct) {
+      return;
+    }
+
     const purchaseDate = product.purchaseDate.toDate();
     const businessDaysPassed = getBusinessDaysBetween(purchaseDate, now);
 
@@ -621,7 +649,7 @@ export const dailyShippingReminder = async () => {
           userId: product.user,
           type,
           args: {
-            title: product.title,
+            title: `${product.title}${product.isBundle ? ` + ${product.productBundleAmount - 1} more` : ''}`,
             date: purchaseDate.toISOString(),
           },
         })
@@ -633,6 +661,7 @@ export const dailyShippingReminder = async () => {
             type: "last_shipping_day",
             recipientId: product.user,
             productId: doc.id,
+            productBundleAmount: product.isBundle ? product.productBundleAmount : 0,
           })
         )
       }
@@ -654,6 +683,7 @@ export const dailyShippingReminder = async () => {
           recipientId: product.buyer,
           productId: doc.id,
           orderId: product.orderId,
+          productBundleAmount: product.isBundle ? product.productBundleAmount : 0,
         })
       )
       updates.push(
@@ -661,7 +691,7 @@ export const dailyShippingReminder = async () => {
           userId: product.buyer,
           type: "buyer_refund_eligibility",
           args: {
-            title: product.title,
+            title: `${product.title}${product.isBundle ? ` + ${product.productBundleAmount - 1} more` : ''}`,
           },
         })
       );

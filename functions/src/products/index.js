@@ -7,47 +7,8 @@ import {
   deleteQuery,
   searchQuery,
 } from './constants.js';
-import { sendNotificationToUser } from "../utils/index.js";
-import { statusTypes } from "../../order.config.js";
 import { updateUsersListingCounts } from "./updateUsersListingCounts.js";
 import { updateProductSnippet } from "./updateProductSnippet.js";
-
-const { productStatus } = statusTypes;
-
-const sendNotifications = (product) => {
-  const notifications = [];
-  const { status, title, buyer, user, selectedSwapSpot } = product;
-
-  const addNotification = (userId, prefix) => {
-    notifications.push({
-      userId,
-      type: `${prefix}_${status}`,
-      args: { title },
-    });
-  };
-
-  switch (status) {
-    case productStatus.PENDING_SHIPPING:
-      addNotification(buyer, "buyer");
-      addNotification(user, "seller");
-      break;
-
-    case productStatus.PENDING_SWAPSPOT_ARRIVAL:
-      addNotification(buyer, "buyer");
-      addNotification(user, "seller");
-      addNotification(selectedSwapSpot, "swapspot");
-      break;
-  }
-
-  notifications.forEach(({ userId, type, args }) => {
-    sendNotificationToUser({
-      userId,
-      type,
-      args,
-    });
-  });
-};
-
 
 export const createProduct = async (event) => {
   logger.info("~~~~~~~~~~~~ START createProduct ~~~~~~~~~~~~", event);
@@ -120,33 +81,73 @@ export const updateProduct = async (event) => {
     try {
       if (
         beforeData.title !== data.title ||
-        beforeData.mainImage !== data.mainImage
+        beforeData.mainImage !== data.mainImage ||
+        beforeData.price !== data.price
       ) {
         const updatedImage = beforeData.mainImage !== data.mainImage;
-        const likeSnapShot = await firestoreDb
-          .collection("likes")
-          .where('product', '==', productId)
-          .get();
-
+        const updatedTitle = beforeData.title !== data.title;
+        const updatedPrice = beforeData.price !== data.price;
         const batch = firestoreDb.batch();
-        likeSnapShot.forEach((doc) => {
-          const likeRef = doc.ref;
-          batch.update(likeRef, { title: data.title });
-        });
 
-        const notificationSnapshot = await firestoreDb
-          .collection("notifications")
-          .where("productId", "==", productId)
+        if (updatedTitle || updatedImage) {
+          const likeSnapShot = await firestoreDb
+            .collection("likes")
+            .where('product', '==', productId)
+            .get();
+
+          likeSnapShot.forEach((doc) => {
+            const likeRef = doc.ref;
+            batch.update(likeRef, {
+              title: data.title,
+              mainImage: data.mainImage,
+            });
+          });
+        }
+
+        if (updatedTitle || updatedImage) {
+          const notificationSnapshot = await firestoreDb
+            .collection("notifications")
+            .where("productId", "==", productId)
+            .get();
+
+          notificationSnapshot.forEach((doc) => {
+            const notificationRef = doc.ref;
+            batch.update(notificationRef, {
+              ...(updatedImage && {
+                imageUrl: data.mainImage
+              }),
+              "productSnapshot.title": data.title,
+            });
+          });
+        }
+
+        const cartSnapshot = await firestoreDb
+          .collection("carts")
+          .where("productIds", "array-contains", productId)
           .get();
 
-        notificationSnapshot.forEach((doc) => {
-          const notificationRef = doc.ref;
-          batch.update(notificationRef, {
-            ...(updatedImage && {
-              imageUrl: data.mainImage
-            }),
-            "productSnapshot.title": data.title,
+        cartSnapshot.forEach((doc) => {
+          const cartRef = doc.ref;
+          const cartData = doc.data();
+
+          const updatedSellers = cartData.sellers.map((seller) => {
+            return {
+              ...seller,
+              products: seller.products.map((product) => {
+                if (product.productId === productId) {
+                  return {
+                    ...product,
+                    title: data.title,
+                    ...(updatedImage && { mainImage: data.mainImage }),
+                    ...(updatedPrice && { price: data.price }),
+                  };
+                }
+                return product;
+              }),
+            };
           });
+
+          batch.update(cartRef, { sellers: updatedSellers });
         });
 
         await batch.commit();
@@ -169,14 +170,6 @@ export const updateProduct = async (event) => {
       updateProductSnippet(data.user);
     } catch (error) {
       logger.error(`Error updating the product snippet with user(${data.user}):`, error.message);
-    }
-
-    try {
-      if (data.status === productStatus.PENDING_SHIPPING || data.status === productStatus.PENDING_SWAPSPOT_ARRIVAL) {
-        sendNotifications(data);
-      }
-    } catch (error) {
-      logger.error(`Error sending the notifications(status: ${data.status}):`, error.message);
     }
 
     try {
@@ -221,7 +214,6 @@ export const updateProduct = async (event) => {
     } catch (error) {
       logger.error('Sending price drop notifications error:', error);
     }
-
 
     db = connectToPostgres();
 

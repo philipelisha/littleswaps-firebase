@@ -5,6 +5,9 @@ import stripe from "stripe";
 import { emailTemplates, sendEmail } from '../utils/index.js';
 import { addBusinessDays, format } from 'date-fns';
 import { onUpdateOrderStatus } from './onUpdateOrderStatus.js';
+import { createLabel } from '../payments/index.js';
+import { sendNotificationToUser } from "../utils/index.js";
+const { productStatus } = statusTypes;
 
 const stripeSDK = stripe(process.env.stripeKey)
 const db = admin.firestore();
@@ -32,6 +35,40 @@ export const updateOrderStatus = async (data, context) => {
   }
 };
 
+const sendNotifications = (order, buyer) => {
+  const notifications = [];
+  const { status, seller, selectedSwapSpot, productBundle, product } = order;
+  const { title } = productBundle ? productBundle[0] : product;
+  const addNotification = (userId, prefix) => {
+    notifications.push({
+      userId,
+      type: `${prefix}_${status}`,
+      args: { title: productBundle ? title + ` + ${productBundle.length - 1} more` : title },
+    });
+  };
+
+  switch (status) {
+    case productStatus.PENDING_SHIPPING:
+      addNotification(buyer, "buyer");
+      addNotification(seller, "seller");
+      break;
+
+    case productStatus.PENDING_SWAPSPOT_ARRIVAL:
+      addNotification(buyer, "buyer");
+      addNotification(seller, "seller");
+      addNotification(selectedSwapSpot, "swapspot");
+      break;
+  }
+
+  notifications.forEach(({ userId, type, args }) => {
+    sendNotificationToUser({
+      userId,
+      type,
+      args,
+    });
+  });
+};
+
 export const createOrder = async (event, stripe = stripeSDK) => {
   logger.info("~~~~~~~~~~~~ START createOrder ~~~~~~~~~~~~", event);
   try {
@@ -57,6 +94,30 @@ export const createOrder = async (event, stripe = stripeSDK) => {
 
     const isSwapSpot = Boolean(order.selectedSwapSpot);
 
+    sendNotifications(order, userId);
+
+    const salesRef = userRef.doc(order.seller).collection('sales')
+    const saleDoc = await salesRef.add({
+      purchaseDate: order.purchaseDate,
+      status: order.status,
+      buyer: userId,
+      product: order.product,
+      productBundle: order.productBundle,
+      purchasePriceDetails: order.purchasePriceDetails,
+      ...(order.selectedSwapSpot && { selectedSwapSpot: order.selectedSwapSpot }),
+      ...(order.selectedAddress && { selectedAddress: order.selectedAddress }),
+      shippingIncluded: order.shippingIncluded,
+      orderId: orderDoc.id,
+    })
+
+    if (order.shippingRate) {
+      await createLabel({
+        rateId: order.shippingRate,
+        sellerId: order.seller,
+        salesId: saleDoc.id,
+      })
+    }
+
     const transaction = await stripe.tax.transactions.createFromCalculation({
       calculation: order.taxCalculationId,
       reference: order.paymentIntent,
@@ -70,22 +131,37 @@ export const createOrder = async (event, stripe = stripeSDK) => {
       },
     });
 
-    const productUpdate = {
-      buyer: userId,
-      active: false,
-      status: isSwapSpot
-        ? statusTypes.productStatus.PENDING_SWAPSPOT_ARRIVAL
-        : statusTypes.productStatus.PENDING_SHIPPING,
-      purchaseDate: order.purchaseDate,
-      purchasePriceDetails: order.purchasePriceDetails,
-      orderId: orderDoc.id,
-      ...(isSwapSpot ? { selectedSwapSpot: order.selectedSwapSpot } : { selectedAddress: order.selectedAddress })
+    const updateProductData = async (bundleItem, index, length) => {
+      const productUpdate = {
+        buyer: userId,
+        active: false,
+        status: isSwapSpot
+          ? productStatus.PENDING_SWAPSPOT_ARRIVAL
+          : productStatus.PENDING_SHIPPING,
+        purchaseDate: order.purchaseDate,
+        purchasePriceDetails: order.purchasePriceDetails,
+        orderId: orderDoc.id,
+        salesId: saleDoc.id,
+        ...(index === 0 && {
+          firstBundleProduct: true,
+          productBundleAmount: length,
+        }),
+        isBundle: index !== undefined,
+        ...(isSwapSpot ? { selectedSwapSpot: order.selectedSwapSpot } : { selectedAddress: order.selectedAddress })
+      };
+
+      await productRef.doc(bundleItem.productId).update(productUpdate);
+      logger.info(`Product ${bundleItem.productId} updated successfully.`);
     };
 
-    await productRef.doc(order.product).update(productUpdate);
-    logger.info(`Product ${order.product} updated successfully.`);
+    if (order.productBundle?.length) {
+      await Promise.all(order.productBundle.map((bundleItem, index) => updateProductData(bundleItem, index, order.productBundle.length)));
+    } else {
+      await updateProductData(order.product);
+    }
 
     if (isSwapSpot) {
+      // TODO: handle Bundles
       await userRef.doc(order.selectedSwapSpot).collection('swapSpotInventory').add({
         title: order.title,
         buyer: userId,
@@ -93,7 +169,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
         product: order.product,
         purchaseDate: order.purchaseDate,
         seller: order.seller,
-        status: statusTypes.productStatus.PENDING_SWAPSPOT_ARRIVAL,
+        status: productStatus.PENDING_SWAPSPOT_ARRIVAL,
       });
 
       const swapSpotDoc = await userRef.doc(order.selectedSwapSpot).get();
@@ -119,6 +195,13 @@ export const createOrder = async (event, stripe = stripeSDK) => {
       logger.info(`Swap spot inventory updated for spot: ${order.selectedSwapSpot}`);
     }
 
+    const formatProductForEmail = (product) => ({
+      name: product.title,
+      size: product.size || '',
+      color: (product.colors || []).join(', '),
+      price: product.price
+    });
+
     const emailPromises = [
       sendEmail({
         email: buyer.email,
@@ -134,19 +217,15 @@ export const createOrder = async (event, stripe = stripeSDK) => {
         templateId: emailTemplates.SELLER_NEW_ORDER,
         data: {
           name: `${seller.firstName} ${seller.lastName}`,
-          product: [{
-            name: order.title,
-            size: order.size || '',
-            color: (order.colors || []).join(', '),
-            price: order.price
-          }]
+          product: order.productBundle?.length
+            ? order.productBundle.map(formatProductForEmail)
+            : [formatProductForEmail(order.product)]
         }
       })
     ];
 
     await Promise.all(emailPromises);
 
-    
   } catch (error) {
     logger.error(`Error processing order creation: ${error.message}`, error);
   }

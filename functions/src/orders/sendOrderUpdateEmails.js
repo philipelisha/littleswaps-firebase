@@ -4,7 +4,7 @@ import { emailTemplates, sendEmail } from "../utils/index.js"
 export const sendShippedEmails = async ({
   buyer,
   seller,
-  product,
+  sale,
   order,
   address
 }) => {
@@ -13,18 +13,23 @@ export const sendShippedEmails = async ({
     templateId: emailTemplates.SELLER_SHIPPED,
     data: {
       name: seller.firstName + ' ' + seller.lastName,
-      product: [
+      product: !sale.productBundle ? [
         {
-          name: product.title,
-          tracking: product.shippingNumber,
-          order_number: order.product.slice(0, 6),
+          name: sale.product.title,
+          tracking: sale.shippingNumber,
+          order_number: sale.id.slice(0, 6),
           delivery_method: order.shippingCarrier
         }
-      ],
+      ] : sale.productBundle?.map(product => ({
+        name: product.title,
+        tracking: sale.shippingNumber,
+        order_number: sale.id.slice(0, 6),
+        delivery_method: order.shippingCarrier
+      })),
       firstName: seller.firstName
     }
   })
-
+  const subTotal = (sale.productBundle || []).reduce((total, product) => total + parseFloat(product.price), 0);
   await sendEmail({
     email: buyer.email,
     templateId: emailTemplates.BUYER_SHIPPED,
@@ -32,22 +37,27 @@ export const sendShippedEmails = async ({
       name: buyer.firstName + ' ' + buyer.lastName,
       order: {
         total: order.purchasePriceDetails.total,
-        subtotal: product.price,
+        subtotal: sale.productBundle ? subTotal : sale.product.price,
         order_number: order.id.slice(0, 6),
         order_number_full: order.id,
         shipping_day: format(new Date(), 'MM/dd/yyyy'),
         delivery_method: order.shippingCarrier,
-        tracking_number: product.shippingNumber,
-        delivery_method_fee: product.shippingIncluded ? 0 : order.purchasePriceDetails.shippingRate
+        tracking_number: sale.shippingNumber,
+        delivery_method_fee: sale.shippingIncluded ? 0 : order.purchasePriceDetails.shippingRate
       },
-      product: [
+      product: !sale.productBundle ? [
         {
-          name: product.title,
-          size: product.size,
-          color: product.colors.join(', '),
-          price: product.price
+          name: sale.product.title,
+          size: sale.product.size,
+          color: sale.product.colors.join(', '),
+          price: sale.product.price,
         }
-      ],
+      ] : sale.productBundle?.map(product => ({
+        name: product.title,
+        size: product.size,
+        color: product.colors.join(', '),
+        price: product.price,
+      })),
       customer: {
         name: address.name,
         address_1st_line: `${address.street} ${address.street2}`,
@@ -59,7 +69,7 @@ export const sendShippedEmails = async ({
 }
 
 export const sendDeliveredEmails = async ({
-  product,
+  sale,
   order,
   seller,
   buyer,
@@ -70,29 +80,41 @@ export const sendDeliveredEmails = async ({
     templateId: emailTemplates.SELLER_DELIVERED,
     data: {
       name: seller.firstName + ' ' + seller.lastName,
-      product: [
+      product: !sale.productBundle ? [
         {
-          name: product.title,
+          name: sale.product.title,
           arrival_date: today,
-          order_number: order.product.slice(0, 6)
+          order_number: sale.id.slice(0, 6)
         }
-      ],
+      ] : sale.productBundle?.map(product => ({
+        name: product.title,
+        arrival_date: today,
+        order_number: sale.id.slice(0, 6)
+      })),
       firstName: seller.firstName
     }
   })
+
+  const totalPrice = (sale.productBundle || []).reduce((total, product) => total + parseFloat(product.price), 0);
+  const earned = ((totalPrice || sale.product.price) - sale.purchasePriceDetails?.commission - (sale.shippingIncluded ? sale.purchasePriceDetails?.shippingRate : 0)).toFixed(2);
   await sendEmail({
     email: seller.email,
     templateId: emailTemplates.SELLER_PAYMENT,
     data: {
       name: seller.firstName + ' ' + seller.lastName,
-      product: [
+      product: !sale.productBundle ? [
         {
           name: product.title,
-          earned: (product.price - product.purchasePriceDetails?.commission - (product.shippingIncluded ? product.purchasePriceDetails?.shippingRate : 0)).toFixed(2),
+          earned,
           arrival_date: today,
-          order_number: order.product.slice(0, 6)
+          order_number: sale.id.slice(0, 6)
         }
-      ],
+      ] : sale.productBundle?.map(product => ({
+        name: product.title,
+        earned,
+        arrival_date: today,
+        order_number: sale.id.slice(0, 6)
+      })),
       firstName: seller.firstName
     }
   })
@@ -101,7 +123,7 @@ export const sendDeliveredEmails = async ({
     templateId: emailTemplates.BUYER_DELIVERED,
     data: {
       name: buyer.firstName + ' ' + buyer.lastName,
-      product: product.title,
+      product: !sale.productBundle ? sale.product.title : sale.productBundle[0].title + ` + ${sale.productBundle.length - 1} more`,
       order_number: order.id.slice(0, 6),
       delivery_method: order.shippingCarrier,
     }

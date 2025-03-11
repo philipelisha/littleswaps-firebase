@@ -2,14 +2,14 @@ import { logger } from "firebase-functions";
 import admin from '../../adminConfig.js';
 import { emailTemplates, sendEmail } from "../utils/index.js";
 
+const db = admin.firestore();
 export const defaultProfileImage = 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media';
 
 export const createUser = async (event) => {
   logger.info("~~~~~~~~~~~~ START createUser ~~~~~~~~~~~~", event);
   try {
     const userId = event.params.userId;
-    const userDoc = await admin
-      .firestore()
+    const userDoc = await db
       .collection("users")
       .doc(userId)
       .get();
@@ -71,14 +71,14 @@ const handleUserValueUpdates = async ({ beforeData, afterData, userId }) => {
     await syncFollowers(userId, afterData);
     await syncReviews(userId, afterData);
     await syncNotifications(userId, afterData);
+    await syncCarts(userId, afterData);
   }
 }
 
 const syncComments = async (user) => {
   if (user.comments && Array.isArray(user.comments)) {
     for (const productId of user.comments) {
-      const commentsRef = admin
-        .firestore()
+      const commentsRef = db
         .collection('products')
         .doc(productId)
         .collection('comments');
@@ -97,14 +97,13 @@ const syncComments = async (user) => {
 };
 
 const syncLikes = async (userId, user) => {
-  const likesSnapshot = await admin
-    .firestore()
+  const likesSnapshot = await db
     .collection('likes')
     .where('user', '==', userId)
     .get();
 
   if (!likesSnapshot.empty) {
-    const batch = admin.firestore().batch();
+    const batch = db.batch();
     likesSnapshot.forEach((likeDoc) => {
       batch.update(likeDoc.ref, {
         userImage: user.profileImage || defaultProfileImage,
@@ -119,14 +118,13 @@ const syncLikes = async (userId, user) => {
 };
 
 const syncProducts = async (userId, user) => {
-  const productSnapshot = await admin
-    .firestore()
+  const productSnapshot = await db
     .collection('products')
     .where('user', '==', userId)
     .get();
 
   if (!productSnapshot.empty) {
-    const batch = admin.firestore().batch();
+    const batch = db.batch();
     productSnapshot.forEach((likeDoc) => {
       batch.update(likeDoc.ref, {
         username: user.username || '',
@@ -138,13 +136,12 @@ const syncProducts = async (userId, user) => {
 };
 
 const syncNotifications = async (userId, user) => {
-  const notificationSnapshot = await admin
-    .firestore()
+  const notificationSnapshot = await db
     .collection("notifications")
     .where("userId", "==", userId)
     .get();
 
-  const batch = admin.firestore().batch();
+  const batch = db.batch();
   notificationSnapshot.forEach((doc) => {
     const notificationRef = doc.ref;
     batch.update(notificationRef, {
@@ -157,8 +154,8 @@ const syncNotifications = async (userId, user) => {
 };
 
 const syncFollowers = async (userId, user) => {
-  const followersRef = admin.firestore().collection('followers');
-  const batch = admin.firestore().batch();
+  const followersRef = db.collection('followers');
+  const batch = db.batch();
 
   const followerSnapshot = await followersRef.where('follower', '==', userId).get();
   followerSnapshot.forEach((doc) => {
@@ -186,15 +183,15 @@ const syncFollowers = async (userId, user) => {
 };
 
 const syncReviews = async (userId, user) => {
-  const batch = admin.firestore().batch();
-  const userDoc = admin.firestore().collection('users').doc(userId);
+  const batch = db.batch();
+  const userDoc = db.collection('users').doc(userId);
 
   const promises = [];
 
   const reviewsGivenSnapshot = await userDoc.collection('reviewsGiven').get();
   reviewsGivenSnapshot.forEach((reviewDoc) => {
     const reviewData = reviewDoc.data();
-    const sellerDoc = admin.firestore().collection('users').doc(reviewData.seller);
+    const sellerDoc = db.collection('users').doc(reviewData.seller);
 
     const promise = sellerDoc
       .collection('reviews')
@@ -214,7 +211,7 @@ const syncReviews = async (userId, user) => {
   const reviewsSnapshot = await userDoc.collection('reviews').get();
   reviewsSnapshot.forEach((reviewDoc) => {
     const reviewData = reviewDoc.data();
-    const buyerDoc = admin.firestore().collection('users').doc(reviewData.buyer);
+    const buyerDoc = db.collection('users').doc(reviewData.buyer);
 
     const promise = buyerDoc
       .collection('reviewsGiven')
@@ -235,5 +232,41 @@ const syncReviews = async (userId, user) => {
 
   await batch.commit();
 };
+
+const syncCarts = async (sellerId, sellerData) => {
+  try {
+    const cartSnapshot = await db
+      .collection("carts")
+      .where("sellerIds", "array-contains", sellerId)
+      .get();
+
+    if (cartSnapshot.empty) return;
+
+    const batch = db.batch();
+
+    cartSnapshot.forEach((doc) => {
+      const cartRef = doc.ref;
+      const cartData = doc.data();
+
+      const updatedSellers = cartData.sellers.map((seller) => {
+        if (seller.sellerId === sellerId) {
+          return {
+            ...seller,
+            username: sellerData.username || '',
+            profileImage: sellerData.profileImage || defaultProfileImage,
+          };
+        }
+        return seller;
+      });
+
+      batch.update(cartRef, { sellers: updatedSellers });
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error syncing seller info in carts: ", error);
+  }
+};
+
 
 export { deleteUser } from './deleteUser.js';

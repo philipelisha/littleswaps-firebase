@@ -12,23 +12,38 @@ const db = admin.firestore();
 const userRef = db.collection("users")
 const productRef = db.collection("products")
 
-const isProductStatusUpdated = async (productId, status) => {
-  const productDoc = productRef.doc(productId);
-  const productSnapshot = await productDoc.get();
-  
-  if (!productSnapshot.exists) {
-    logger.warn(`Product ${productId} not found.`);
+const getProductTitleFromSale = (sale) => {
+  return sale.productBundle ? sale.productBundle[0].title + ` + ${sale.productBundle.length - 1} more` : sale.product.title
+}
+
+const getSellerAndSaleId = (userAndSaleId) => {
+  const [userId, saleId] = userAndSaleId.split('_')
+  return { userId, saleId }
+};
+
+const isSaleStatusUpdated = async (userAndSaleId, status) => {
+  try {
+    const { userId, saleId } = getSellerAndSaleId(userAndSaleId);
+
+    const saleSnapshot = await userRef.doc(userId).collection('sales').doc(saleId).get();
+
+    if (!saleSnapshot.exists) {
+      logger.warn(`Product ${userAndSaleId} not found.`);
+      return true;
+    }
+
+    const sale = saleSnapshot.data();
+
+    if (sale.status === status) {
+      logger.warn(`Sale ${userAndSaleId} already has status ${status}. Skipping update.`);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.error('Error checking sale status:', error);
     return true;
   }
-  
-  const product = productSnapshot.data();
-
-  if (product.status === status) {
-    logger.warn(`Product ${productId} already has status ${status}. Skipping update.`);
-    return true;
-  }
-
-  return false;
 };
 
 const getUserData = async (id) => {
@@ -59,11 +74,11 @@ const getUserStripeAccountId = async (userId) => {
 
 const handleStripeTransfers = async ({
   swapSpotId,
-  paymentIntentId,
+  paymentIntent: paymentIntentId,
   purchasePriceDetails,
   seller,
   stripe,
-  productId,
+  userAndSaleId,
 }) => {
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
   logger.info('payment intent from stripe', paymentIntent)
@@ -87,7 +102,7 @@ const handleStripeTransfers = async ({
         user: swapSpotId,
         amount: earnings / 100,
         chargeId: paymentIntent.latest_charge,
-        productId
+        userAndSaleId
       });
     }
   }
@@ -110,19 +125,19 @@ const handleStripeTransfers = async ({
       user: seller,
       amount: sellerEarnings / 100,
       chargeId: paymentIntent.latest_charge,
-      productId
+      userAndSaleId
     });
   }
 };
 
-const storePendingPayout = async ({ user, amount, chargeId, productId }) => {
+const storePendingPayout = async ({ user, amount, chargeId, userAndSaleId }) => {
   try {
     await userRef.doc(user).update({
       pendingPayouts: admin.firestore.FieldValue.arrayUnion({
         amount,
         currency: "usd",
         chargeId,
-        productId,
+        userAndSaleId,
         timestamp: Date.now()
       })
     });
@@ -132,34 +147,28 @@ const storePendingPayout = async ({ user, amount, chargeId, productId }) => {
   }
 };
 
-const updateUserOrderStatus = async (userId, productId, status) => {
-  let paymentIntent;
-  let title;
-  let order;
+const updateUserOrderStatus = async (userId, orderId, status) => {
+  const orderRef = userRef
+    .doc(userId)
+    .collection('orders')
+    .doc(orderId);
+  const orderSnapshot = await orderRef.get();
 
-  const userOrdersRef = userRef.doc(userId).collection('orders');
-  const ordersSnapshot = await userOrdersRef.where('product', '==', productId).get();
-
-  if (!ordersSnapshot.empty) {
-    const docSnapshot = ordersSnapshot.docs[0];
-    order = {
-      ...docSnapshot.data(),
-      id: docSnapshot.id,
-    };
-    paymentIntent = order.paymentIntent;
-    title = order.title;
-
-    await docSnapshot.ref.update({
-      status: status,
-      updated: new Date()
-    });
+  if (!orderSnapshot.exists) {
+    throw new Error(`Order ${orderId} not found for user ${userId}`);
   }
 
-  return {
-    paymentIntentId: paymentIntent,
-    title,
-    order
+  const order = {
+    ...orderSnapshot.data(),
+    id: orderSnapshot.id,
   };
+
+  await orderRef.update({
+    status: status,
+    updated: new Date(),
+  });
+
+  return order;
 };
 
 const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
@@ -184,22 +193,53 @@ const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
   };
 };
 
-const updateProductStatus = async (productId, status) => {
-  console.log('Updating the product status', productId, status)
-  const productDoc = productRef.doc(productId);
-  await productDoc.update({
-    status,
-    purchaseStatusUpdated: new Date()
+const updateProductStatus = async (sale, status) => {
+  const batch = db.batch();
+  const productIds = sale.productBundle
+    ? sale.productBundle.map(p => p.productId)
+    : [sale.product.productId];
+
+  productIds.forEach(productId => {
+    const productRef = db.collection('products').doc(productId);
+    batch.update(productRef, {
+      status,
+      statusUpdated: new Date(),
+    });
   });
-  return (await productDoc.get()).data();
+
+  await batch.commit();
 };
 
-const handleShippedEmails = async (product, order) => {
+const updateSaleStatus = async (userAndSaleId, status) => {
+  try {
+    console.log('Updating the sale status', userAndSaleId, status)
+    const { userId, saleId } = getSellerAndSaleId(userAndSaleId);
+    const saleDoc = userRef.doc(userId).collection('sales').doc(saleId);
+    await saleDoc.update({
+      status,
+      purchaseStatusUpdated: new Date()
+    });
+    const doc = await saleDoc.get()
+    const data = doc.data()
+    await updateProductStatus(data, status)
+
+    return {
+      ...data,
+      id: saleDoc.id,
+      seller: userId,
+    }
+  } catch (error) {
+    logger.error('Error updating sale status:', error);
+    return false;
+  }
+};
+
+const handleShippedEmails = async (sale, order) => {
   const [sellerResult, buyerResult, addressSnapShot] = await Promise.all([
-    userRef.doc(product.buyer).get(),
-    userRef.doc(product.user).get(),
+    userRef.doc(sale.buyer).get(),
+    userRef.doc(sale.seller).get(),
     userRef
-      .doc(product.buyer)
+      .doc(sale.buyer)
       .collection('shippingAddress')
       .doc(order.selectedAddress)
       .get(),
@@ -212,20 +252,20 @@ const handleShippedEmails = async (product, order) => {
   await sendShippedEmails({
     buyer,
     seller,
-    product,
+    sale,
     order,
     address,
   })
 };
 
-const handleDeliveredEmails = async (product, order) => {
+const handleDeliveredEmails = async (sale, order) => {
   const [sellerResult, buyerResult] = await Promise.all([
-    await getUserData(product.user),
-    await getUserData(product.buyer),
+    await getUserData(sale.seller),
+    await getUserData(sale.buyer),
   ])
 
   await sendDeliveredEmails({
-    product,
+    sale,
     order,
     seller: sellerResult.data(),
     buyer: buyerResult.data(),
@@ -233,14 +273,15 @@ const handleDeliveredEmails = async (product, order) => {
 };
 
 const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
+  // TODO: handle bundles
   const status = productStatus.PENDING_SWAPSPOT_PICKUP;
-  if (await isProductStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(productId, status)) {
     return;
   }
 
   const { buyer } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
   const { title } = await updateUserOrderStatus(buyer, productId, status);
-  await updateProductStatus(productId, status);
+  await updateSaleStatus(productId, status);
   await sendNotificationToUser({
     userId: buyer,
     type: 'buyer_' + productStatus.PENDING_SWAPSPOT_PICKUP,
@@ -250,19 +291,20 @@ const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
   });
 };
 
-const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
+const handleSwapSpotFulfillment = async ({ swapSpotId, userAndSaleId, stripe }) => {
+  // TODO: handle bundles
   const status = productStatus.COMPLETED;
-  if (await isProductStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(productId, status)) {
     return;
   }
 
-  const { buyer, seller } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
-  const { paymentIntentId, title } = await updateUserOrderStatus(buyer, productId, status);
-  const product = await updateProductStatus(productId, status);
+  const { buyer, seller } = await updateUserSwapSpotInventoryStatus(swapSpotId, userAndSaleId, status);
+  const { paymentIntent, product: orderProduct, productBundle } = await updateUserOrderStatus(buyer, userAndSaleId, status);
+  const product = await updateSaleStatus(userAndSaleId, status);
   const { purchasePriceDetails } = product;
   await handleStripeTransfers({
     swapSpotId,
-    paymentIntentId,
+    paymentIntent,
     purchasePriceDetails,
     seller,
     stripe,
@@ -282,105 +324,108 @@ const handleSwapSpotFulfillment = async ({ swapSpotId, productId, stripe }) => {
   });
 };
 
-const handleLabelCreated = async ({ productId }) => {
-  const status = productStatus.LABEL_CREATED;  
-  if (await isProductStatusUpdated(productId, status)) {
+const handleLabelCreated = async ({ userAndSaleId }) => {
+  const status = productStatus.LABEL_CREATED;
+  if (await isSaleStatusUpdated(userAndSaleId, status)) {
     return;
-  }  
-  
-  const product = await updateProductStatus(productId, status);
-  await updateUserOrderStatus(product.buyer, productId, status);
+  }
+
+  const sale = await updateSaleStatus(userAndSaleId, status);
+  await updateUserOrderStatus(sale.buyer, sale.orderId, status);
+
 
   await sendNotificationToUser({
-    userId: product.buyer,
+    userId: sale.buyer,
     type: 'buyer_' + productStatus.LABEL_CREATED,
     args: {
-      title: product.title
+      title: getProductTitleFromSale(sale)
     }
   });
 };
 
-const handleShipped = async ({ productId }) => {
+const handleShipped = async ({ userAndSaleId }) => {
   const status = productStatus.SHIPPED;
-  if (await isProductStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(userAndSaleId, status)) {
     return;
   }
 
-  const product = await updateProductStatus(productId, status);
-  const { order } = await updateUserOrderStatus(product.buyer, productId, status);
+  const sale = await updateSaleStatus(userAndSaleId, status);
+  const order = await updateUserOrderStatus(sale.buyer, sale.orderId, status);
 
   await sendNotificationToUser({
-    userId: product.buyer,
+    userId: sale.buyer,
     type: 'buyer_' + productStatus.SHIPPED,
     args: {
-      title: product.title
+      title: getProductTitleFromSale(sale)
     }
   });
 
-  await handleShippedEmails(product, order);
+  await handleShippedEmails(sale, order);
 
   await addNotification({
     type: 'shipping_update',
-    recipientId: product.buyer,
-    productId,
-    orderId: order.id
+    recipientId: sale.buyer,
+    productId: sale.productBundle ? sale.productBundle[0].productId : sale.product.productId,
+    orderId: order.id,
+    productBundleAmount: sale.productBundle?.length || 0
   })
 };
 
-const handleOutForDelivery = async ({ productId }) => {
+const handleOutForDelivery = async ({ userAndSaleId }) => {
   const status = productStatus.OUT_FOR_DELIVERY;
-  if (await isProductStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(userAndSaleId, status)) {
     return;
   }
 
-  const product = await updateProductStatus(productId, status);
-  await updateUserOrderStatus(product.buyer, productId, status);
+  const sale = await updateSaleStatus(userAndSaleId, status);
+  await updateUserOrderStatus(sale.buyer, sale.orderId, status);
   await sendNotificationToUser({
-    userId: product.buyer,
+    userId: sale.buyer,
     type: 'buyer_' + productStatus.OUT_FOR_DELIVERY,
     args: {
-      title: product.title
+      title: getProductTitleFromSale(sale)
     }
   });
 };
 
-const handleDelivered = async ({ productId, stripe }) => {
+const handleDelivered = async ({ userAndSaleId, stripe }) => {
   const status = productStatus.COMPLETED;
-  if (await isProductStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(userAndSaleId, status)) {
     return;
   }
-  
-  const product = await updateProductStatus(productId, status);
-  const { purchasePriceDetails } = product;
-  const { paymentIntentId, order } = await updateUserOrderStatus(product.buyer, productId, status);
+
+  const sale = await updateSaleStatus(userAndSaleId, status);
+  const { purchasePriceDetails } = sale;
+  const { paymentIntent, ...order } = await updateUserOrderStatus(sale.buyer, sale.orderId, status);
 
   await handleStripeTransfers({
-    paymentIntentId,
+    paymentIntent,
     purchasePriceDetails,
-    seller: product.user,
+    seller: sale.seller,
     stripe,
-    productId,
+    userAndSaleId,
   });
   await sendNotificationToUser({
-    userId: product.user,
+    userId: sale.seller,
     type: 'seller_' + orderActions.DELIVERED,
     args: {}
   });
   await sendNotificationToUser({
-    userId: product.buyer,
+    userId: sale.buyer,
     type: 'DELIVERED',
     args: {
-      title: product.title
+      title: getProductTitleFromSale(sale)
     }
   });
 
-  await handleDeliveredEmails(product, order);
- 
+  await handleDeliveredEmails(sale, order);
+
   await addNotification({
     type: 'review_reminder',
-    recipientId: product.buyer,
-    productId: productId,
-    orderId: order.id
+    recipientId: sale.buyer,
+    productId: sale.productBundle ? sale.productBundle[0].productId : sale.product.productId,
+    orderId: order.id,
+    productBundleAmount: sale.productBundle?.length || 0
   })
 };
 
@@ -393,12 +438,12 @@ const actionHandlers = {
   [orderActions.DELIVERED]: handleDelivered, //done
 };
 
-export const onUpdateOrderStatus = async ({ type, swapSpotId, productId, stripe = stripeSDK }) => {
+export const onUpdateOrderStatus = async ({ type, swapSpotId, userAndSaleId, stripe = stripeSDK }) => {
   try {
     logger.info('Order status start updating', {
       type,
       swapSpotId,
-      productId
+      userAndSaleId,
     });
 
     const handler = actionHandlers[type];
@@ -407,7 +452,7 @@ export const onUpdateOrderStatus = async ({ type, swapSpotId, productId, stripe 
       throw new https.HttpsError('invalid-argument', 'Invalid order action type.');
     }
 
-    await handler({ swapSpotId, productId, stripe });
+    await handler({ swapSpotId, userAndSaleId, stripe });
 
     logger.info('Order status updated successfully.');
     return true
