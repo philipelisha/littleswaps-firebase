@@ -43,10 +43,10 @@ export const updateOrderStatus = https.onCall(orders.updateOrderStatus);
 export const onNewNotification = https.onCall(userNotifications.onNewNotification);
 export const dailyShippingReminder = pubsub.schedule("0 9 * * 1-5").timeZone("America/New_York").onRun(payments.dailyShippingReminder);
 // TODO: remove this test function
-export const dailyShippingReminderTest = https.onRequest(async (req, res) => {
-  const response = await payments.dailyShippingReminder()
-  res.status(200).json(response)
-});
+// export const dailyShippingReminderTest = https.onRequest(async (req, res) => {
+//   const response = await payments.dailyShippingReminder()
+//   res.status(200).json(response)
+// });
 
 // ### STRIPE ###
 export const addCardToPaymentIntent = https.onCall(payments.addCardToPaymentIntent);
