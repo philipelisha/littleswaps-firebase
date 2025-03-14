@@ -15,6 +15,7 @@ admin.firestore = jest.fn().mockReturnValue({
 });
 admin.firestore.Timestamp = {
   now: () => 'now',
+  fromMillis: () => 'mils',
 }
 jest.spyOn(console, 'error').mockImplementation(() => { })
 jest.spyOn(console, 'info').mockImplementation(() => { })

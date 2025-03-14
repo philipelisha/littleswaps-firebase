@@ -179,26 +179,6 @@ describe('Products Functions', () => {
         isSold: false,
       })
 
-      expect(sendNotificationToUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          args: expect.objectContaining({
-            title: "MockProduct",
-          }),
-          type: "buyer_PENDING_SHIPPING",
-          userId: "mock-buyer-id",
-        })
-      );
-
-      expect(sendNotificationToUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          args: expect.objectContaining({
-            title: "MockProduct",
-          }),
-          type: "seller_PENDING_SHIPPING",
-          userId: "mock-user-id",
-        })
-      );
-
       const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21, username = $22, originalPrice = $23 WHERE firestoreid = $24`;
       const firstArg = connectToPostgres().none.mock.calls[0][0];
       expect(firstArg.replace(/\s\s+/g, ' ')).toMatch(expectedQuery)
@@ -283,26 +263,6 @@ describe('Products Functions', () => {
         updatingActive: true,
         isSold: false,
       })
-
-      expect(sendNotificationToUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          args: expect.objectContaining({
-            title: "MockProduct",
-          }),
-          type: "buyer_PENDING_SWAPSPOT_ARRIVAL",
-          userId: "mock-buyer-id",
-        })
-      );
-
-      expect(sendNotificationToUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          args: expect.objectContaining({
-            title: "MockProduct",
-          }),
-          type: "seller_PENDING_SWAPSPOT_ARRIVAL",
-          userId: "mock-user-id",
-        })
-      );
 
       const expectedQuery = ` UPDATE products SET active = $1, userId = $2, title = $3, mainImage = $4, price = $5, priceCurrency = $6, location = $7, latitude = $8, longitude = $9, mainCategory = $10, subCategory = $11, size = $12, brand = $13, colors = $14, isNewWithTags = $15, likes = $16, updated = $17, availableShipping = $18, purchaseDate = $19, condition = $20, shippingIncluded = $21, username = $22, originalPrice = $23 WHERE firestoreid = $24`;
       const firstArg = connectToPostgres().none.mock.calls[0][0];

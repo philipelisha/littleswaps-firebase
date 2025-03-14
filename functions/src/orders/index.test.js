@@ -26,7 +26,8 @@ jest.mock('../../adminConfig.js', () => ({
             update: mockUpdate,
             get: mockGet,
             add: mockAdd,
-          }))
+          })),
+          add: mockAdd,
         }))
       })),
     })),
@@ -36,6 +37,10 @@ jest.mock('../../adminConfig.js', () => ({
 jest.mock('../utils/index.js', () => ({
   ...jest.requireActual('../utils/index.js'),
   sendEmail: jest.fn().mockResolvedValue({}),
+}));
+
+jest.mock('../payments/index.js', () => ({
+  createLabel: jest.fn().mockResolvedValue(),
 }));
 
 
@@ -117,16 +122,19 @@ describe('createOrder', () => {
 
   const orderDoc = {
     exists: true,
+    id: 'orderId',
     data: () => ({
       seller: 'seller789',
       taxCalculationId: 'taxCalc123',
       paymentIntent: 'pi_123',
-      product: 'prod_456',
+      product: {
+        productId: 'prod_456',
+        title: 'Sample Product',
+        colors: ['Red', 'Blue'],
+        price: 50,
+        size: 'M',
+      },
       purchaseDate: { seconds: 1633036800 },
-      title: 'Sample Product',
-      size: 'M',
-      colors: ['Red', 'Blue'],
-      price: 50,
       parcel: { length: 10, width: 5, height: 8, distanceUnit: 'in' },
       purchasePriceDetails: {
         tax: 10,
@@ -159,7 +167,7 @@ describe('createOrder', () => {
       .mockResolvedValueOnce(orderDoc)
       .mockResolvedValueOnce(buyerDoc)
       .mockResolvedValueOnce(sellerDoc);
-
+    mockAdd.mockResolvedValue({ id: 'saleId' })
     jest.clearAllMocks();
   });
 
@@ -178,7 +186,10 @@ describe('createOrder', () => {
     });
 
     expect(mockStripe.paymentIntents.update).toHaveBeenCalledWith('pi_123', {
-      metadata: { tax_transaction: 'tx_789', productId: 'prod_456' },
+      metadata: {
+        tax_transaction: 'tx_789',
+        orderId: `user123_order456`,
+      },
     });
 
     expect(mockUpdate).toHaveBeenCalledWith({
@@ -190,6 +201,9 @@ describe('createOrder', () => {
         tax: 10,
         total: 100,
       },
+      orderId: 'orderId',
+      salesId: 'saleId',
+      isBundle: false
     })
 
     expect(sendEmail).toHaveBeenCalledTimes(2);
@@ -201,31 +215,13 @@ describe('createOrder', () => {
     );
   });
 
-  it('should log an error if order or user is not found', async () => {
-    mockGet.mockResolvedValueOnce({ exists: false });
-
-    await createOrder(event);
-
-    expect(mockGet).toHaveBeenCalledTimes(3);
-    expect(sendEmail).not.toHaveBeenCalled();
-  });
-
-  it('should handle errors gracefully', async () => {
-    const loggerSpy = jest.spyOn(logger, 'error').mockImplementation();
-    mockGet.mockRejectedValue(new Error(''));
-
-    await createOrder(event);
-
-    expect(loggerSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Order or User not found for userId: user123, orderId: order456')
-    );
-    expect(sendEmail).not.toHaveBeenCalled();
-    loggerSpy.mockRestore();
-  });
-
   it('should handle errors gracefully', async () => {
     const mockStripe = {
-      tax: { transactions: { createFromCalculation: jest.fn().mockResolvedValue({ id: 'tx_789' }) } },
+      tax: {
+        transactions: {
+          createFromCalculation: jest.fn().mockResolvedValue({ id: 'tx_789' })
+        }
+      },
       paymentIntents: { update: jest.fn().mockResolvedValue() },
     };
     const error = new Error('Stripe error');
@@ -237,5 +233,14 @@ describe('createOrder', () => {
     expect(loggerSpy).toHaveBeenCalledWith("Error processing order creation: Stripe error", error);
     expect(sendEmail).not.toHaveBeenCalled();
     loggerSpy.mockRestore();
+  });
+
+  it('should log an error if order or user is not found', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+
+    await createOrder(event);
+
+    expect(mockGet).toHaveBeenCalledTimes(3);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 });

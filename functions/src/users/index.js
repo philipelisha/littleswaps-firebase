@@ -2,10 +2,10 @@ import { logger } from "firebase-functions";
 import admin from '../../adminConfig.js';
 import { emailTemplates, sendEmail } from "../utils/index.js";
 
-const db = admin.firestore();
 export const defaultProfileImage = 'https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImage.png?alt=media';
 
 export const createUser = async (event) => {
+  const db = admin.firestore();
   logger.info("~~~~~~~~~~~~ START createUser ~~~~~~~~~~~~", event);
   try {
     const userId = event.params.userId;
@@ -76,6 +76,7 @@ const handleUserValueUpdates = async ({ beforeData, afterData, userId }) => {
 }
 
 const syncComments = async (user) => {
+  const db = admin.firestore();
   if (user.comments && Array.isArray(user.comments)) {
     for (const productId of user.comments) {
       const commentsRef = db
@@ -97,6 +98,7 @@ const syncComments = async (user) => {
 };
 
 const syncLikes = async (userId, user) => {
+  const db = admin.firestore();
   const likesSnapshot = await db
     .collection('likes')
     .where('user', '==', userId)
@@ -118,6 +120,7 @@ const syncLikes = async (userId, user) => {
 };
 
 const syncProducts = async (userId, user) => {
+  const db = admin.firestore();
   const productSnapshot = await db
     .collection('products')
     .where('user', '==', userId)
@@ -136,6 +139,7 @@ const syncProducts = async (userId, user) => {
 };
 
 const syncNotifications = async (userId, user) => {
+  const db = admin.firestore();
   const notificationSnapshot = await db
     .collection("notifications")
     .where("userId", "==", userId)
@@ -154,6 +158,7 @@ const syncNotifications = async (userId, user) => {
 };
 
 const syncFollowers = async (userId, user) => {
+  const db = admin.firestore();
   const followersRef = db.collection('followers');
   const batch = db.batch();
 
@@ -183,6 +188,7 @@ const syncFollowers = async (userId, user) => {
 };
 
 const syncReviews = async (userId, user) => {
+  const db = admin.firestore();
   const batch = db.batch();
   const userDoc = db.collection('users').doc(userId);
 
@@ -234,6 +240,7 @@ const syncReviews = async (userId, user) => {
 };
 
 const syncCarts = async (sellerId, sellerData) => {
+  const db = admin.firestore();
   try {
     const cartSnapshot = await db
       .collection("carts")

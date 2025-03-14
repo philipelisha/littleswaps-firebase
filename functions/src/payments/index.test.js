@@ -37,8 +37,14 @@ jest.mock('../../adminConfig.js', () => ({
       doc: jest.fn(() => ({
         update: mockUpdate,
         get: mockGet,
+        collection: jest.fn().mockReturnThis(),
+        doc: jest.fn().mockReturnThis(),
       })),
     })),
+    batch: jest.fn().mockReturnValue({
+      update: jest.fn(),
+      commit: jest.fn(),
+    }),
   })),
 }));
 
@@ -675,8 +681,9 @@ describe("createShipment", () => {
 describe("createLabel", () => {
   let shippoMock;
   const data = {
-    rateId: 'rateid',
-    productId: 'productid'
+    rateId: 'rate id',
+    sellerId: 'seller id',
+    salesId: 'sale id',
   };
   beforeEach(() => {
     shippoMock = {
@@ -687,41 +694,29 @@ describe("createLabel", () => {
   });
 
   it("should create the label", async () => {
-    const context = { auth: { uid: 'someUserId' } };
-
     const transaction = { test: 'test info' };
     shippoMock.transactions.create.mockResolvedValueOnce(transaction);
 
-    const result = await createLabel(data, context, shippoMock);
+    const result = await createLabel(data, shippoMock);
 
     expect(result).toBe(transaction);
     expect(mockUpdate).toHaveBeenCalledWith({
       shippingLabelCreating: true
     })
     expect(shippoMock.transactions.create).toHaveBeenCalledWith({
-      rate: 'rateid',
+      rate: 'rate id',
       label_file_type: "PNG",
-      metadata: 'productid',
+      metadata: 'seller id_sale id',
       labelFileType: 'PNG'
     });
   });
 
-  it("should handle unauthenticated user", async () => {
-    const context = { auth: null };
-
-    await expect(createLabel(data, context, shippoMock)).rejects.toThrow(
-      "Authentication required."
-    );
-    expect(shippoMock.transactions.create).not.toHaveBeenCalled();
-  });
-
   it("should handle error", async () => {
-    const context = { auth: { uid: 'someUserId' } };
     jest.spyOn(logger, 'error').mockImplementation(() => { })
     const error = new Error('error');
     shippoMock.transactions.create.mockRejectedValue(error)
 
-    const result = await createLabel(data, context, shippoMock);
+    const result = await createLabel(data, shippoMock);
 
     expect(result).toStrictEqual({
       success: false,
@@ -729,9 +724,9 @@ describe("createLabel", () => {
       status: 'failed'
     })
     expect(shippoMock.transactions.create).toHaveBeenCalledWith({
-      rate: 'rateid',
+      rate: 'rate id',
       label_file_type: "PNG",
-      metadata: 'productid',
+      metadata: 'seller id_sale id',
       labelFileType: 'PNG'
     });
     expect(logger.error).toHaveBeenCalledWith(
@@ -815,6 +810,14 @@ describe('saveShippingLabel', () => {
   const envToken = 'valid_token';
 
   it('should save shipping label successfully', async () => {
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        shippingLabelCreating: true,
+        productBundle: [],
+        product: { productId: 'product123' }
+      }),
+    });
     await saveShippingLabel(mockReq, mockRes, envToken);
 
     expect(mockUpdate).toHaveBeenCalledWith({
@@ -849,7 +852,7 @@ describe('saveShippingLabel', () => {
     expect(mockRes.status).toHaveBeenCalledWith(400);
     expect(mockRes.json).toHaveBeenCalledWith({
       success: false,
-      message: 'Missing product ID or label URL.',
+      message: 'Missing sale ID or label URL.',
     });
   });
 
@@ -873,7 +876,7 @@ describe('orderTrackingUpdate', () => {
   const mockReq = {
     body: {
       data: {
-        metadata: 'product123',
+        metadata: 'sellerId_saleId',
         tracking_status: {
           status: 'delivered',
           substatus: 'delivered',
@@ -903,7 +906,7 @@ describe('orderTrackingUpdate', () => {
 
     expect(onUpdateOrderStatus).toHaveBeenCalledWith({
       type: orderActions.DELIVERED,
-      productId: 'product123',
+      userAndSaleId: 'sellerId_saleId',
     });
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.send).toHaveBeenCalledWith('Webhook received and logged');

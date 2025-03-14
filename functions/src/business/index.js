@@ -11,6 +11,7 @@ export const getMetrics = async () => {
     const threeDaysAgo = now - 3 * 24 * 60 * 60;
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60;
     const twelveMonthsAgo = now - 365 * 24 * 60 * 60;
+    const twelveMonthsAgoTimestamp = admin.firestore.Timestamp.fromMillis(twelveMonthsAgo * 1000);
     const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
     let purchaseData = {
       today: 0,
@@ -66,7 +67,7 @@ export const getMetrics = async () => {
         .count()
         .get(),
       db.collection("products")
-        .where("purchaseDate", ">", twelveMonthsAgo)
+        .where("purchaseDate", ">", twelveMonthsAgoTimestamp)
         .get(),
       db.collection("users")
         .get()

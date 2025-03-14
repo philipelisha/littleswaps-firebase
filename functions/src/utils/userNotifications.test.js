@@ -57,6 +57,7 @@ describe('addNotification', () => {
       imageUrl: "image_url",
       isRead: false,
       message: "started following you.",
+      productBundleAmount: 0,
       recipientId: "recipient123",
       title: "New Follower",
       type: "new_follower",

@@ -13,6 +13,7 @@ const stripeSDK = stripe(process.env.stripeKey)
 const db = admin.firestore();
 const userRef = db.collection("users")
 const productRef = db.collection("products")
+
 export const updateOrderStatus = async (data, context) => {
   logger.info("~~~~~~~~~~~~ START updateOrderStatus ~~~~~~~~~~~~", data);
   try {
@@ -127,7 +128,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
     await stripe.paymentIntents.update(order.paymentIntent, {
       metadata: {
         tax_transaction: transaction.id,
-        productId: order.product,
+        orderId: `${userId}_${orderId}`,
       },
     });
 

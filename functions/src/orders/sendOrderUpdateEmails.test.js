@@ -32,14 +32,35 @@ const mockProductData = {
 };
 const mockOrderData = {
   id: 'orderid',
-  product: mockProductId,
-  title: 'Test Product',
+  product: {
+    productId: mockProductId,
+    title: 'Test Product',
+    colors: ['red', 'green'],
+    price: 100,
+  },
   shippingCarrier: 'shippingCarrier',
   shippingNumber: 'shippingNumber',
   paymentIntent: 'pi_12345',
   purchasePriceDetails: {
     total: 150,
     shippingRate: 15,
+  }
+};
+const mockSaleData = {
+  id: 'saleid',
+  product: {
+    productId: mockProductId,
+    title: 'Test Product',
+    price: 100,
+    colors: ['red', 'green'],
+  },
+  shippingCarrier: 'shippingCarrier',
+  shippingNumber: 'shippingNumber',
+  paymentIntent: 'pi_12345',
+  purchasePriceDetails: {
+    total: 150,
+    shippingRate: 15,
+    commission: 10,
   }
 };
 const mockAddressData = {
@@ -60,7 +81,7 @@ describe('sendShippedEmails', () => {
     await sendShippedEmails({
       buyer: mockBuyerData,
       seller: mockSellerData,
-      product: mockProductData,
+      sale: mockSaleData,
       order: mockOrderData,
       address: mockAddressData,
     })
@@ -74,7 +95,7 @@ describe('sendShippedEmails', () => {
           {
             name: mockProductData.title,
             tracking: mockProductData.shippingNumber,
-            order_number: mockOrderData.product.slice(0, 6),
+            order_number: 'saleid'.slice(0, 6),
             delivery_method: 'shippingCarrier'
           }
         ],
@@ -89,20 +110,20 @@ describe('sendShippedEmails', () => {
         name: 'buyer first name buyer last name',
         order: {
           total: mockOrderData.purchasePriceDetails.total,
-          subtotal: mockProductData.price,
+          subtotal: mockSaleData.product.price,
           order_number: mockOrderData.id.slice(0, 6),
           order_number_full: mockOrderData.id,
           shipping_day: format(new Date(), 'MM/dd/yyyy'),
           delivery_method: mockOrderData.shippingCarrier,
-          tracking_number: mockProductData.shippingNumber,
+          tracking_number: mockSaleData.shippingNumber,
           delivery_method_fee: mockOrderData.purchasePriceDetails.shippingRate
         },
         product: [
           {
-            name: mockProductData.title,
-            size: mockProductData.size,
-            color: mockProductData.colors.join(', '),
-            price: mockProductData.price,
+            name: mockSaleData.product.title,
+            size: mockSaleData.product.size,
+            color: mockSaleData.product.colors.join(', '),
+            price: mockSaleData.product.price,
           }
         ],
         customer: {
@@ -120,7 +141,7 @@ describe('sendDeliveredEmails', () => {
   it('should call to send the emails', async () => {
     const today = format(new Date(), 'MM/dd/yyyy');
     await sendDeliveredEmails({
-      product: mockProductData,
+      sale: mockSaleData,
       order: mockOrderData,
       seller: mockSellerData,
       buyer: mockBuyerData,
@@ -133,9 +154,9 @@ describe('sendDeliveredEmails', () => {
         name: 'seller first name seller last name',
         product: [
           {
-            name: mockProductData.title,
+            name: mockSaleData.product.title,
             arrival_date: today,
-            order_number: mockOrderData.product.slice(0, 6),
+            order_number: mockSaleData.id.slice(0, 6),
           }
         ],
         firstName: 'seller first name'
@@ -149,10 +170,10 @@ describe('sendDeliveredEmails', () => {
         name: 'seller first name seller last name',
         product: [
           {
-            name: mockProductData.title,
+            name: mockSaleData.product.title,
             earned: '90.00',
             arrival_date: today,
-            order_number: mockOrderData.product.slice(0, 6),
+            order_number: mockSaleData.id.slice(0, 6),
           }
         ],
         firstName: 'seller first name'
@@ -164,9 +185,9 @@ describe('sendDeliveredEmails', () => {
       templateId: emailTemplates.BUYER_DELIVERED,
       data: {
         name: 'buyer first name buyer last name',
-        product: mockProductData.title,
+        product: mockSaleData.product.title,
         order_number: mockOrderData.id.slice(0, 6),
-        delivery_method: mockOrderData.shippingCarrier,
+        delivery_method: mockSaleData.shippingCarrier,
       }
     })
   })

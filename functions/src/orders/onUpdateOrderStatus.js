@@ -82,10 +82,10 @@ const handleStripeTransfers = async ({
 }) => {
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
   logger.info('payment intent from stripe', paymentIntent)
-  const total = paymentIntent.amount_received;
+  const totalPayed = paymentIntent.amount_received;
 
   const { commission, shippingRate = 0, swapSpotCommission = 0, tax = 0 } = purchasePriceDetails;
-  logger.info(`The price breakdown: total: ${total} commission: ${commission}, shippingRate: ${shippingRate} swapSpotCommission: ${swapSpotCommission}`)
+  logger.info(`The price breakdown: total: ${totalPayed} commission: ${commission}, shippingRate: ${shippingRate} swapSpotCommission: ${swapSpotCommission}`)
   if (swapSpotId) {
     const swapSpotStripeId = await getUserStripeAccountId(swapSpotId);
     const earnings = Math.round(swapSpotCommission * 100);
@@ -108,13 +108,13 @@ const handleStripeTransfers = async ({
   }
 
   const sellerStripeId = await getUserStripeAccountId(seller);
-  const sellerEarnings = Math.round(
-    total - (swapSpotCommission * 100) - (commission * 100) - (shippingRate * 100) - (tax * 100)
+  const sellerEarningsInCents = Math.round(
+    totalPayed - (swapSpotCommission * 100) - (commission * 100) - (shippingRate * 100) - (tax * 100)
   );
 
   if (sellerStripeId) {
     await stripe.transfers.create({
-      amount: sellerEarnings,
+      amount: sellerEarningsInCents,
       currency: "usd",
       destination: sellerStripeId,
       source_transaction: paymentIntent.latest_charge,
@@ -123,7 +123,7 @@ const handleStripeTransfers = async ({
     logger.warn(`Seller ${seller} has no Stripe account. Storing pending payout.`);
     await storePendingPayout({
       user: seller,
-      amount: sellerEarnings / 100,
+      amount: sellerEarningsInCents / 100,
       chargeId: paymentIntent.latest_charge,
       userAndSaleId
     });
@@ -148,11 +148,11 @@ const storePendingPayout = async ({ user, amount, chargeId, userAndSaleId }) => 
 };
 
 const updateUserOrderStatus = async (userId, orderId, status) => {
-  const orderRef = userRef
+  const orderDoc = userRef
     .doc(userId)
     .collection('orders')
     .doc(orderId);
-  const orderSnapshot = await orderRef.get();
+  const orderSnapshot = await orderDoc.get();
 
   if (!orderSnapshot.exists) {
     throw new Error(`Order ${orderId} not found for user ${userId}`);
@@ -160,10 +160,10 @@ const updateUserOrderStatus = async (userId, orderId, status) => {
 
   const order = {
     ...orderSnapshot.data(),
-    id: orderSnapshot.id,
+    id: orderId,
   };
 
-  await orderRef.update({
+  await orderDoc.update({
     status: status,
     updated: new Date(),
   });
@@ -332,7 +332,6 @@ const handleLabelCreated = async ({ userAndSaleId }) => {
 
   const sale = await updateSaleStatus(userAndSaleId, status);
   await updateUserOrderStatus(sale.buyer, sale.orderId, status);
-
 
   await sendNotificationToUser({
     userId: sale.buyer,
