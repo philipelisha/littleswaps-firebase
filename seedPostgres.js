@@ -44,6 +44,7 @@ async function initDB() {
         purchasedate DATE, 
         shippingincluded BOOLEAN,
         condition VARCHAR,
+        gender VARCHAR,
         username VARCHAR
       );
     `);

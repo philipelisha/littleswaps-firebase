@@ -56,6 +56,7 @@ export const createProduct = async (event) => {
       data.condition || null,
       data.username || null,
       data.originalPrice || null,
+      data.gender || null,
     ])
   } catch (error) {
     logger.error(
@@ -79,30 +80,35 @@ export const updateProduct = async (event) => {
     const productId = event.params.productId;
     const firestoreDb = admin.firestore();
     try {
+      const updatedTitle = beforeData.title !== data.title;
+      const updatedImage = beforeData.mainImage !== data.mainImage;
+      const updatedPrice = beforeData.price !== data.price;
+      const updatedSize = beforeData.size !== data.size
+      const updatedPriceCurrency = beforeData.priceCurrency !== data.priceCurrency
       if (
-        beforeData.title !== data.title ||
-        beforeData.mainImage !== data.mainImage ||
-        beforeData.price !== data.price
+        updatedTitle ||
+        updatedImage ||
+        updatedSize ||
+        updatedPriceCurrency ||
+        updatedPrice
       ) {
-        const updatedImage = beforeData.mainImage !== data.mainImage;
-        const updatedTitle = beforeData.title !== data.title;
-        const updatedPrice = beforeData.price !== data.price;
         const batch = firestoreDb.batch();
 
-        if (updatedTitle || updatedImage) {
-          const likeSnapShot = await firestoreDb
-            .collection("likes")
-            .where('product', '==', productId)
-            .get();
+        const likeSnapShot = await firestoreDb
+          .collection("likes")
+          .where('product', '==', productId)
+          .get();
 
-          likeSnapShot.forEach((doc) => {
-            const likeRef = doc.ref;
-            batch.update(likeRef, {
-              title: data.title,
-              mainImage: data.mainImage,
-            });
+        likeSnapShot.forEach((doc) => {
+          const likeRef = doc.ref;
+          batch.update(likeRef, {
+            title: data.title,
+            mainImage: data.mainImage,
+            size: data.size,
+            price: data.price,
+            priceCurrency: data.priceCurrency,
           });
-        }
+        });
 
         if (updatedTitle || updatedImage) {
           const notificationSnapshot = await firestoreDb
@@ -192,7 +198,7 @@ export const updateProduct = async (event) => {
               type: 'price_drop',
               title: "Price Drop Alert",
               recipientId: followerData.user,
-              message: "The seller has dropped the price for",
+              message: `The seller has dropped the price from $${beforeData.price} to $${data.price} for`,
               createdAt: timestamp,
               isRead: false,
               imageUrl: data.mainImage || null,
@@ -242,6 +248,7 @@ export const updateProduct = async (event) => {
         data.shippingIncluded || null,
         data.username || null,
         data.originalPrice || null,
+        data.gender || null,
         productId
       ])
   } catch (error) {
@@ -293,6 +300,7 @@ export const searchProducts = async (data, context) => {
       priceFilterMax = null,
       shippingFilter,
       conditionFilter,
+      genderFilter,
       userId = null,
       isProfile = false,
       isCurrentUser = false,
@@ -332,6 +340,7 @@ export const searchProducts = async (data, context) => {
         priceFilterMax,
         shippingFilter,
         conditionFilter,
+        genderFilter,
         userId,
         longitude,
         latitude,

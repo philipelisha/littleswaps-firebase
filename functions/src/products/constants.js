@@ -22,9 +22,10 @@ export const insertQuery = `
     shippingIncluded,
     condition,
     username,
-    originalPrice
+    originalPrice,
+    gender
   )
-  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 `;
 
 export const updateQuery = `
@@ -52,8 +53,9 @@ export const updateQuery = `
     condition = $20,
     shippingIncluded = $21,
     username = $22,
-    originalPrice = $23
-  WHERE firestoreid = $24
+    originalPrice = $23,
+    gender = $24
+  WHERE firestoreid = $25
 `;
 
 export const deleteQuery = 'DELETE FROM products WHERE firestoreid = $1'
@@ -88,13 +90,14 @@ export const searchQuery = ({
       )
       AND ($9 IS NULL OR availableShipping = $9)
       AND ($10 IS NULL OR condition = $10)
-      AND ($11 IS NULL OR userid ${isProfile ? '=' : '!='} $11)
+      AND ($11 IS NULL OR gender = $11)
+      AND ($12 IS NULL OR userid ${isProfile ? '=' : '!='} $12)
       AND (
-        $12 IS NULL OR
+        $13 IS NULL OR
         ST_DWithin(
           ST_MakePoint(longitude, latitude)::geography,
-          ST_MakePoint($12, $13)::geography,
-          $14
+          ST_MakePoint($13, $14)::geography,
+          $15
         )
       )
   `;
