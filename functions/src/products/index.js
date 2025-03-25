@@ -313,6 +313,9 @@ export const searchProducts = async (data, context) => {
       isMainCategoryArray = false,
       isSubCategoryArray = false,
       isBrandArray = false,
+      limit = 10,
+      userIdList = null,
+      updatedAfterDate = null,
     } = data;
     // console.log('data', data);
 
@@ -325,6 +328,7 @@ export const searchProducts = async (data, context) => {
         sortBy,
         sortDirection,
         offset,
+        limit,
         isMainCategoryArray,
         isSubCategoryArray,
         isBrandArray,
@@ -344,7 +348,9 @@ export const searchProducts = async (data, context) => {
         userId,
         longitude,
         latitude,
-        radiusInMeters
+        radiusInMeters,
+        userIdList?.length ? userIdList : null,
+        updatedAfterDate,
       ],
     );
 

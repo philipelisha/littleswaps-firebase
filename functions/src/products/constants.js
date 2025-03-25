@@ -66,12 +66,13 @@ export const searchQuery = ({
   sortBy,
   sortDirection,
   offset,
+  limit = 10,
   isMainCategoryArray,
   isSubCategoryArray,
   isBrandArray,
 }) => {
   const baseQuery = `
-    SELECT *, COUNT(*) OVER() AS total_count 
+    SELECT *, updated::TEXT AS updated_at, COUNT(*) OVER() AS total_count 
     FROM products
     WHERE
       (${isCurrentUser} OR active = true)
@@ -91,7 +92,11 @@ export const searchQuery = ({
       AND ($9 IS NULL OR availableShipping = $9)
       AND ($10 IS NULL OR condition = $10)
       AND ($11 IS NULL OR gender = $11)
-      AND ($12 IS NULL OR userid ${isProfile ? '=' : '!='} $12)
+      AND (
+        ($16 IS NOT NULL AND userid = ANY($16)) 
+        OR 
+        ($16 IS NULL AND ($12 IS NULL OR userid ${isProfile ? '=' : '!='} $12))
+      )
       AND (
         $13 IS NULL OR
         ST_DWithin(
@@ -100,6 +105,7 @@ export const searchQuery = ({
           $15
         )
       )
+      AND ($17 IS NULL OR updated >= TO_TIMESTAMP($17))
   `;
 
   const mainCategoryCondition = isMainCategoryArray
@@ -120,6 +126,6 @@ export const searchQuery = ({
     ${subCategoryCondition}
     ${brandCondition}
     ORDER BY ${isCurrentUser ? 'active DESC,' : ''} ${sortBy} ${sortDirection}
-    LIMIT 10 OFFSET ${offset};
+    LIMIT ${limit} OFFSET ${offset};
   `;
 };
