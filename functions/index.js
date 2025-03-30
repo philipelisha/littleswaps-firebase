@@ -27,6 +27,7 @@ export const createProduct = onDocumentCreated('/products/{productId}', products
 export const updateProduct = onDocumentUpdated('/products/{productId}', products.updateProduct);
 export const deleteProduct = onDocumentDeleted('/products/{productId}', products.deleteProduct);
 export const shareProduct = https.onCall(products.onShare);
+export const deleteProductSingle = https.onCall(products.deleteProductSingle);
 export const searchProducts = functions
   .region("us-central1")
   .runWith({

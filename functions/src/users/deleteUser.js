@@ -239,7 +239,7 @@ const deleteSubcollections = async (docRef, batch) => {
   }
 };
 
-const deleteProductReferences = async ({
+export const deleteProductReferences = async ({
   batch,
   db,
   doc,
@@ -258,6 +258,12 @@ const deleteProductReferences = async ({
       productId,
       batch,
     });
+    await removeProductFromCarts({
+      db,
+      productRef,
+      productId,
+      batch
+    })
   } catch (error) {
     console.error('error deleting product from firestore', error.message)
   }
@@ -290,6 +296,13 @@ const removeNotifications = async (db, productId, batch) => {
   const snapshot = await notificationsRef.where('productId', '==', productId).get();
 
   snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (!data.isRead) {
+      const userRef = db.collection("users").doc(data.recipientId);
+      batch.update(userRef, {
+        notifications: admin.firestore.FieldValue.increment(-1)
+      });
+    }
     batch.delete(doc.ref);
   });
 
@@ -299,7 +312,7 @@ const removeNotifications = async (db, productId, batch) => {
 const removeProductFromUserComments = async ({ db, productRef, productId, batch }) => {
   const commentsRef = productRef.collection('comments');
   const commentsSnapshot = await commentsRef.get();
-  
+
   commentsSnapshot.forEach((commentDoc) => {
     const comment = commentDoc.data();
     const userRef = db.collection('users').doc(comment.user);
@@ -312,3 +325,60 @@ const removeProductFromUserComments = async ({ db, productRef, productId, batch 
 
   console.log(`Queued removal of product ID from user comments.`);
 };
+
+export const removeProductFromCarts = async ({ db, productRef, productId, batch }) => {
+  const cartSnapshot = await db
+    .collection("carts")
+    .where("productIds", "array-contains", productId)
+    .get();
+
+  cartSnapshot.forEach((doc) => {
+    const cartRef = doc.ref;
+    const cartData = doc.data();
+
+    let removedSeller = null;
+    const updatedSellers = cartData.sellers
+      .map((seller) => {
+        const updatedProducts = seller.products.filter(
+          (product) => product.productId !== productId
+        );
+
+        if (updatedProducts.length === 0) {
+          removedSeller = seller.sellerId;
+          return null;
+        }
+
+        return {
+          ...seller,
+          products: updatedProducts,
+        };
+      })
+      .filter(Boolean);
+
+    const updatedProductIds = cartData.productIds.filter(
+      (id) => id !== productId
+    );
+
+    batch.update(cartRef, {
+      sellers: updatedSellers,
+      productIds: updatedProductIds,
+      ...(removedSeller ? {
+        sellerIds: admin.firestore.FieldValue.arrayRemove(removedSeller)
+      } : {}),
+    });
+  });
+
+  const userSnapshot = await db
+    .collection("users")
+    .where("cartItems", "array-contains", productId)
+    .get();
+
+  userSnapshot.forEach((doc) => {
+    const userRef = doc.ref;
+
+    batch.update(userRef, {
+      cartItems: admin.firestore.FieldValue.arrayRemove(productId),
+      cartItemsLength: admin.firestore.FieldValue.increment(-1),
+    });
+  });
+}

@@ -6,11 +6,19 @@ export const updateUsersListingCounts = async (user, {
   isActive = false,
   updatingActive = false,
   isSold = false,
+  isDeleted = false,
+  isActiveBeforeDelete = false,
 }) => {
   try {
     const newValues = {
       ...(isNew && {
         totalListings: admin.firestore.FieldValue.increment(1),
+      }),
+      ...(isDeleted && {
+        totalListings: admin.firestore.FieldValue.increment(-1),
+        totalActive: admin.firestore.FieldValue.increment(
+          isActiveBeforeDelete ? -1 : 0
+        ),
       }),
       ...(isSold && {
         totalSold: admin.firestore.FieldValue.increment(1),
