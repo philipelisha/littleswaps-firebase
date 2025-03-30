@@ -14,6 +14,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh2:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8E',
   signUpLocation: '',
   username: 'philip',
+  discountCodesUsed: ['ONETIMEUSE10']
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -31,6 +32,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip1',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -48,6 +50,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip2',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -65,6 +68,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip3',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -82,6 +86,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip4',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -99,6 +104,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip5',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -116,6 +122,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip6',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -133,6 +140,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip7',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -150,6 +158,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip8',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -167,6 +176,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip9',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -184,6 +194,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip10',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -201,6 +212,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip11',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -218,6 +230,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip12',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -235,6 +248,7 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip13',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },
 {
   appIdentifier: 'com.littleswaps',
@@ -252,4 +266,5 @@ module.exports = [{
   pushToken: 'e-Uqs7TvWUCcijLM5Ghyh3:APA91bE08CoFiPy7HjDFjATi4h-E--6TeuGphOjabvaMs8D3e9XcZTEmD1dpFz-s9qTOg7pkgnu6bFfNYH1ac8VF8fwBbWKmFcNcYgNx9yQPnyMt_mFsP8F',
   signUpLocation: '',
   username: 'philip14',
+  discountCodesUsed: ['ONETIMEUSE10'],
 },]

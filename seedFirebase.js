@@ -2,6 +2,7 @@
 // import adminConfig from '../adminConfig.js';
 const admin = require('firebase-admin');
 const importedUsers = require('./seedData/users');
+const Timestamp = admin.firestore.Timestamp;
 
 process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
 
@@ -37,6 +38,87 @@ async function seedDatabase() {
       await db.collection('brands').add(brand);
     }
     console.log('Brands seeded.');
+
+    // Seed Discounts
+    const discounts = [
+      {
+        code: "WELCOME10",
+        type: "percentage",
+        value: 10,
+        maxUses: 10,
+        timesUsed: 7,
+        minPurchase: 35,
+        expiresAt: Timestamp.fromDate(new Date("2025-12-31T23:59:59.000Z")),
+        active: true
+      },
+      {
+        code: "ONETIMEUSE10",
+        type: "percentage",
+        value: 10,
+        maxUses: 10,
+        timesUsed: 7,
+        minPurchase: 35,
+        expiresAt: Timestamp.fromDate(new Date("2025-12-31T23:59:59.000Z")),
+        active: true,
+        oneTimeUse: true,
+      },
+      {
+        code: "WELCOME5",
+        type: "fixed",
+        value: 5,
+        maxUses: 10,
+        timesUsed: 7,
+        minPurchase: 30,
+        expiresAt: Timestamp.fromDate(new Date("2025-12-31T23:59:59.000Z")),
+        active: true
+      },
+      {
+        code: "EXPIRED10",
+        type: "percentage",
+        value: 10,
+        maxUses: 10,
+        timesUsed: 7,
+        minPurchase: 35,
+        expiresAt: Timestamp.fromDate(new Date("2024-12-31T23:59:59.000Z")),
+        active: true
+      },
+      {
+        code: "LARGEMIN10",
+        type: "percentage",
+        value: 10,
+        maxUses: 10,
+        timesUsed: 7,
+        minPurchase: 100,
+        expiresAt: Timestamp.fromDate(new Date("2025-12-31T23:59:59.000Z")),
+        active: true
+      },
+      {
+        code: "USED10",
+        type: "percentage",
+        value: 10,
+        maxUses: 10,
+        timesUsed: 10,
+        minPurchase: 35,
+        expiresAt: Timestamp.fromDate(new Date("2025-12-31T23:59:59.000Z")),
+        active: true
+      },
+      {
+        code: "INACTIVE10",
+        type: "percentage",
+        value: 10,
+        maxUses: 10,
+        timesUsed: 7,
+        minPurchase: 35,
+        expiresAt: Timestamp.fromDate(new Date("2025-12-31T23:59:59.000Z")),
+        active: false
+      },
+    ];
+
+    for (const discount of discounts) {
+      const { code } = discount;
+      await db.collection("discounts").doc(code).set(discount);
+    }
+    console.log('Discounts seeded.');
 
     // Seed Categories
     const categories = [

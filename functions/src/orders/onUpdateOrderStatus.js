@@ -84,8 +84,15 @@ const handleStripeTransfers = async ({
   logger.info('payment intent from stripe', paymentIntent)
   const totalPayed = paymentIntent.amount_received;
 
-  const { commission, shippingRate = 0, swapSpotCommission = 0, tax = 0 } = purchasePriceDetails;
-  logger.info(`The price breakdown: total: ${totalPayed} commission: ${commission}, shippingRate: ${shippingRate} swapSpotCommission: ${swapSpotCommission}`)
+  const { commission, shippingRate = 0, swapSpotCommission = 0, tax = 0, discount = 0 } = purchasePriceDetails;
+  logger.info(`The price breakdown: 
+    total: ${totalPayed},
+    commission: ${commission},
+    shippingRate: ${shippingRate},
+    swapSpotCommission: ${swapSpotCommission},
+    discount: ${discount}
+  `)
+  
   if (swapSpotId) {
     const swapSpotStripeId = await getUserStripeAccountId(swapSpotId);
     const earnings = Math.round(swapSpotCommission * 100);
@@ -109,7 +116,7 @@ const handleStripeTransfers = async ({
 
   const sellerStripeId = await getUserStripeAccountId(seller);
   const sellerEarningsInCents = Math.round(
-    totalPayed - (swapSpotCommission * 100) - (commission * 100) - (shippingRate * 100) - (tax * 100)
+    totalPayed - (swapSpotCommission * 100) - (commission * 100) - (shippingRate * 100) - (tax * 100) + (discount * 100)
   );
 
   if (sellerStripeId) {

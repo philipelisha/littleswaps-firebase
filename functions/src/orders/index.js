@@ -104,6 +104,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
       buyer: userId,
       product: order.product,
       productBundle: order.productBundle,
+      discountData: order.discountData,
       purchasePriceDetails: order.purchasePriceDetails,
       ...(order.selectedSwapSpot && { selectedSwapSpot: order.selectedSwapSpot }),
       ...(order.selectedAddress && { selectedAddress: order.selectedAddress }),
@@ -140,6 +141,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
           ? productStatus.PENDING_SWAPSPOT_ARRIVAL
           : productStatus.PENDING_SHIPPING,
         purchaseDate: order.purchaseDate,
+        discountData: order.discountData,
         purchasePriceDetails: order.purchasePriceDetails,
         orderId: orderDoc.id,
         salesId: saleDoc.id,
@@ -194,6 +196,16 @@ export const createOrder = async (event, stripe = stripeSDK) => {
       });
 
       logger.info(`Swap spot inventory updated for spot: ${order.selectedSwapSpot}`);
+    }
+
+    if (order.discountData) {
+      try {
+        db.collection('discounts').doc(order.discountData.code).update({
+          timesUsed: admin.firestore.FieldValue.increment(1)
+        })
+      } catch (error) {
+        console.error('error applying the times used to a discount', error.message)
+      }
     }
 
     const formatProductForEmail = (product) => ({

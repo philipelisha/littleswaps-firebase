@@ -12,6 +12,10 @@ service cloud.firestore {
     match /brands/{documentId} {
       allow read: if request.auth != null;
     }
+
+    match /discounts/{documentId} {
+      allow read: if request.auth != null;
+    }
     
     match /trendingbrands/{documentId} {
       allow read: if request.auth != null;
@@ -47,8 +51,8 @@ service cloud.firestore {
     }
 
     match /carts/{userId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if request.auth != null && re  quest.auth.uid == userId;
+    	allow create: if request.auth != null;
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
     match /users/{userId} {
