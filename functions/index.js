@@ -59,7 +59,8 @@ export const getLinkedAccounts = https.onCall(payments.getLinkedAccounts);
 export const createLoginLink = https.onCall(payments.createLoginLink);
 export const getEstimatedTaxes = https.onCall(payments.getEstimatedTaxes);
 // webhook
-export const failedPaymentIntent = https.onRequest(payments.failedPaymentIntent);
+// TODO: this is not hooked up or doing anything
+// export const failedPaymentIntent = https.onRequest(payments.failedPaymentIntent);
 
 // ### SHIPPO ###
 export const validateAddress = https.onCall(payments.validateAddress);

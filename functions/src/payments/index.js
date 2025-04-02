@@ -2,10 +2,9 @@ import { https, logger } from 'firebase-functions';
 import stripe from "stripe";
 import admin from '../../adminConfig.js';
 import { Shippo } from "shippo";
-import { orderActions, statusTypes } from '../../order.config.js';
+import { orderActions } from '../../order.config.js';
 import axios from 'axios';
 import { onUpdateOrderStatus } from '../orders/onUpdateOrderStatus.js';
-import { sendNotificationToUser, addNotification } from '../utils/index.js';
 
 const stripeSDK = stripe(process.env.stripeKey)
 const shippoKey = process.env.shippoKey;
@@ -301,7 +300,7 @@ export const getEstimatedTaxes = async (data, context, stripe = stripeSDK) => {
   }
 };
 
-export const failedPaymentIntent = async (req, res, stripe = stripeSDK) => {
+/* export const failedPaymentIntent = async (req, res, stripe = stripeSDK) => {
   logger.info("~~~~~~~~~~~~ START failedPaymentIntent ~~~~~~~~~~~~", {
     body: req.body,
     query: req.query,
@@ -330,7 +329,7 @@ export const failedPaymentIntent = async (req, res, stripe = stripeSDK) => {
   }
 
   return res.status(200).send('Suceeded');
-}
+} */
 
 export const createShipment = async (data, context, shippo = shippoSDK) => {
   logger.info('~~~~~~~~~~~~ START createShipment ~~~~~~~~~~~~', data)
@@ -595,110 +594,4 @@ export const orderTrackingUpdate = async (req, res, token = envToken) => {
   }
 }
 
-const isBusinessDay = (date) => {
-  const day = date.getDay();
-  return day !== 0 && day !== 6;
-};
-
-const getBusinessDaysBetween = (startDate, endDate) => {
-  let count = 0;
-  let currentDate = new Date(startDate.setDate(startDate.getDate() + 1));
-  while (currentDate <= endDate) {
-    if (isBusinessDay(currentDate)) count++;
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  return count;
-};
-
-export const dailyShippingReminder = async () => {
-  const now = new Date();
-  const sixDaysAgo = new Date();
-  sixDaysAgo.setDate(now.getDate() - 7);
-
-  const snapshot = await db.collection("products")
-    .where("purchaseDate", ">=", sixDaysAgo)
-    .where("status", "==", statusTypes.productStatus.LABEL_CREATED)
-    .orderBy("purchaseDate", "asc")
-    .get();
-
-  if (snapshot.empty) {
-    console.log("No products requiring shipping reminders.");
-    return null;
-  }
-
-  const updates = [];
-  snapshot.forEach((doc) => {
-    const product = doc.data();
-    if (product.isBundle && !product.firstBundleProduct) {
-      return;
-    }
-
-    const purchaseDate = product.purchaseDate.toDate();
-    const businessDaysPassed = getBusinessDaysBetween(purchaseDate, now);
-
-    let type = null;
-    if (businessDaysPassed === 1) type = "seller_shipping_reminder_1";
-    else if (businessDaysPassed === 2) type = "seller_shipping_reminder_2";
-    else if (businessDaysPassed === 3) type = "seller_shipping_reminder_3";
-
-    logger.info('How many businessDaysPassed: ', businessDaysPassed)
-    logger.info('Sending notification type: ', type)
-    if (type) {
-      updates.push(
-        sendNotificationToUser({
-          userId: product.user,
-          type,
-          args: {
-            title: `${product.title}${product.isBundle ? ` + ${product.productBundleAmount - 1} more` : ''}`,
-            date: purchaseDate.toISOString(),
-          },
-        })
-      );
-
-      if (type === "seller_shipping_reminder_3") {
-        updates.push(
-          addNotification({
-            type: "last_shipping_day",
-            recipientId: product.user,
-            productId: doc.id,
-            productBundleAmount: product.isBundle ? product.productBundleAmount : 0,
-          })
-        )
-      }
-    }
-
-    if (businessDaysPassed === 4) {
-      updates.push(
-        db.collection("users")
-          .doc(product.buyer)
-          .collection('orders')
-          .doc(product.orderId)
-          .update({
-            canRequestRefund: true
-          })
-      )
-      updates.push(
-        addNotification({
-          type: "buyer_refund_eligibility",
-          recipientId: product.buyer,
-          productId: doc.id,
-          orderId: product.orderId,
-          productBundleAmount: product.isBundle ? product.productBundleAmount : 0,
-        })
-      )
-      updates.push(
-        sendNotificationToUser({
-          userId: product.buyer,
-          type: "buyer_refund_eligibility",
-          args: {
-            title: `${product.title}${product.isBundle ? ` + ${product.productBundleAmount - 1} more` : ''}`,
-          },
-        })
-      );
-    }
-  });
-
-  await Promise.all(updates);
-  console.log("Shipping reminders and refund notifications sent successfully.");
-  return null;
-};
+export { dailyShippingReminder } from './dailyShippingReminder.js';

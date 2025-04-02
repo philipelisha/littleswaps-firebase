@@ -295,5 +295,4 @@ const syncCarts = async (sellerId, sellerData) => {
   }
 };
 
-
 export { deleteUser } from './deleteUser.js';

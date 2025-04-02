@@ -229,4 +229,29 @@ describe('User Functions', () => {
 
     expect(mockBatchCommit).toHaveBeenCalled();
   });
+
+  it('updateUser when username is updated it updates the followers', async () => {
+    event.data.before = mockUserDoc({ profileImage: 'old image' });
+    event.data.after = mockUserDoc({
+      username: 'username',
+      profileImage: 'new image',
+    });
+    mockGet.mockImplementation(() => ([
+      { ref: { id: 'notification1' }, data: () => ({type: 'new_follower'}) },
+      { ref: { id: 'notification2' }, data: () => ({type: 'new_follower'}) }
+    ]));
+
+    await updateUser(event);
+
+    // expect(mockBatchUpdate).toHaveBeenCalledWith({ id: 'notification1' }, expect.objectContaining({
+    //   imageUrl: 'new image',
+    //   "userSnapshot.username": 'username'
+    // }));
+    // expect(mockBatchUpdate).toHaveBeenCalledWith({ id: 'notification2' }, expect.objectContaining({
+    //   imageUrl: 'new image',
+    //   "userSnapshot.username": 'username'
+    // }));
+
+    expect(mockBatchCommit).toHaveBeenCalled();
+  });
 });

@@ -6,9 +6,9 @@ import { emailTemplates, sendEmail } from '../utils/index.js';
 import { addBusinessDays, format } from 'date-fns';
 import { onUpdateOrderStatus } from './onUpdateOrderStatus.js';
 import { createLabel } from '../payments/index.js';
-import { sendNotificationToUser } from "../utils/index.js";
-const { productStatus } = statusTypes;
+import { sendNotification } from './sendNotification.js';
 
+const { productStatus } = statusTypes;
 const stripeSDK = stripe(process.env.stripeKey)
 const db = admin.firestore();
 const userRef = db.collection("users")
@@ -36,40 +36,6 @@ export const updateOrderStatus = async (data, context) => {
   }
 };
 
-const sendNotifications = (order, buyer) => {
-  const notifications = [];
-  const { status, seller, selectedSwapSpot, productBundle, product } = order;
-  const { title } = productBundle ? productBundle[0] : product;
-  const addNotification = (userId, prefix) => {
-    notifications.push({
-      userId,
-      type: `${prefix}_${status}`,
-      args: { title: productBundle ? title + ` + ${productBundle.length - 1} more` : title },
-    });
-  };
-
-  switch (status) {
-    case productStatus.PENDING_SHIPPING:
-      addNotification(buyer, "buyer");
-      addNotification(seller, "seller");
-      break;
-
-    case productStatus.PENDING_SWAPSPOT_ARRIVAL:
-      addNotification(buyer, "buyer");
-      addNotification(seller, "seller");
-      addNotification(selectedSwapSpot, "swapspot");
-      break;
-  }
-
-  notifications.forEach(({ userId, type, args }) => {
-    sendNotificationToUser({
-      userId,
-      type,
-      args,
-    });
-  });
-};
-
 export const createOrder = async (event, stripe = stripeSDK) => {
   logger.info("~~~~~~~~~~~~ START createOrder ~~~~~~~~~~~~", event);
   try {
@@ -95,7 +61,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
 
     const isSwapSpot = Boolean(order.selectedSwapSpot);
 
-    sendNotifications(order, userId);
+    sendNotification(order, userId);
 
     const salesRef = userRef.doc(order.seller).collection('sales')
     const saleDoc = await salesRef.add({

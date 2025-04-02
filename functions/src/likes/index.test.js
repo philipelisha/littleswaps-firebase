@@ -6,6 +6,10 @@ jest.mock("./updateProductLike", () => ({
   updateProductLike: jest.fn(),
 }))
 
+jest.mock("../users/deleteUser", () => ({
+  deleteProductReferences: jest.fn(),
+}));
+
 jest.mock("../utils", () => ({
   getIdsFromEvent: jest.fn(() => {
     return {document: "docId", user: "userId" }

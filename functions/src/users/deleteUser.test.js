@@ -20,6 +20,7 @@ jest.mock('firebase-functions', () => {
 });
 
 jest.mock('../../adminConfig.js');
+jest.spyOn(console, 'error').mockImplementation(() => {});
 const mockBatchUpdate = jest.fn();
 const mockBatchDelete = jest.fn();
 const mockBatchCommit = jest.fn();
