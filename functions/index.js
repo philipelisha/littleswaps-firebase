@@ -37,6 +37,7 @@ export const searchProducts = functions
   .https.onCall(products.searchProducts);
 export const createLike = onDocumentCreated('/likes/{likeId}', likes.createLike);
 export const deleteLike = onDocumentDeleted('/likes/{likeId}', likes.deleteLike);
+export const generateProductListing = https.onCall(products.generateProductListing);
 // payments
 export const createReview = onDocumentCreated('/users/{userId}/reviews/{reviewId}', reviews.createReview);
 export const createOrder = onDocumentCreated('/users/{userId}/orders/{orderId}', orders.createOrder);

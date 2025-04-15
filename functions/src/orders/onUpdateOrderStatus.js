@@ -81,7 +81,6 @@ const handleStripeTransfers = async ({
   userAndSaleId,
 }) => {
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  logger.info('payment intent from stripe', paymentIntent)
   const totalPayed = paymentIntent.amount_received;
 
   const { commission, shippingRate = 0, swapSpotCommission = 0, tax = 0, discount = 0 } = purchasePriceDetails;
@@ -92,25 +91,27 @@ const handleStripeTransfers = async ({
     swapSpotCommission: ${swapSpotCommission},
     discount: ${discount}
   `)
-  
+
   if (swapSpotId) {
     const swapSpotStripeId = await getUserStripeAccountId(swapSpotId);
     const earnings = Math.round(swapSpotCommission * 100);
-    if (swapSpotStripeId) {
-      await stripe.transfers.create({
-        amount: earnings,
-        currency: "usd",
-        destination: swapSpotStripeId,
-        source_transaction: paymentIntent.latest_charge,
-      });
-    } else {
-      logger.warn(`SwapSpot ${swapSpotId} has no Stripe account. Skipping transfer.`);
-      await storePendingPayout({
-        user: swapSpotId,
-        amount: earnings / 100,
-        chargeId: paymentIntent.latest_charge,
-        userAndSaleId
-      });
+    if (earnings) {
+      if (swapSpotStripeId) {
+        await stripe.transfers.create({
+          amount: earnings,
+          currency: "usd",
+          destination: swapSpotStripeId,
+          source_transaction: paymentIntent.latest_charge,
+        });
+      } else {
+        logger.warn(`SwapSpot ${swapSpotId} has no Stripe account. Skipping transfer.`);
+        await storePendingPayout({
+          user: swapSpotId,
+          amount: earnings / 100,
+          chargeId: paymentIntent.latest_charge,
+          userAndSaleId
+        });
+      }
     }
   }
 
@@ -178,11 +179,16 @@ const updateUserOrderStatus = async (userId, orderId, status) => {
   return order;
 };
 
-const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
+const updateUserSwapSpotInventoryStatus = async (userId, userAndSaleId, status) => {
   let buyer;
   let seller;
-  const swapSpotInventoryRef = userRef.doc(userId).collection('swapSpotInventory');
-  const inventorySnapshot = await swapSpotInventoryRef.where('product', '==', productId).get();
+  const swapSpotRef = userRef.doc(userId)
+  const swapSpotInventoryRef = swapSpotRef.collection('swapSpotInventory');
+  const [inventorySnapshot, swapSpotDoc] = await Promise.all([
+    swapSpotInventoryRef.where('userAndSaleId', '==', userAndSaleId).get(),
+    swapSpotRef.get()
+  ]);
+  
   if (!inventorySnapshot.empty) {
     const doc = inventorySnapshot.docs[0];
     const data = doc.data()
@@ -190,6 +196,9 @@ const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
     seller = data.seller;
     await doc.ref.update({
       status,
+      ...status === productStatus.COMPLETED && {
+        isCompleted: true
+      },
       updated: new Date()
     });
   }
@@ -197,6 +206,7 @@ const updateUserSwapSpotInventoryStatus = async (userId, productId, status) => {
   return {
     buyer,
     seller,
+    swapSpotDoc: swapSpotDoc.data(),
   };
 };
 
@@ -279,54 +289,53 @@ const handleDeliveredEmails = async (sale, order) => {
   })
 };
 
-const handleSwapSpotReceiving = async ({ swapSpotId, productId }) => {
-  // TODO: handle bundles
+const handleSwapSpotReceiving = async ({ swapSpotId, userAndSaleId }) => {
   const status = productStatus.PENDING_SWAPSPOT_PICKUP;
-  if (await isSaleStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(userAndSaleId, status)) {
     return;
   }
 
-  const { buyer } = await updateUserSwapSpotInventoryStatus(swapSpotId, productId, status);
-  const { title } = await updateUserOrderStatus(buyer, productId, status);
-  await updateSaleStatus(productId, status);
+  const sale = await updateSaleStatus(userAndSaleId, status);
+  const {swapSpotDoc} = await updateUserSwapSpotInventoryStatus(swapSpotId, userAndSaleId, status);
+  await updateUserOrderStatus(sale.buyer, sale.orderId, status);
   await sendNotificationToUser({
-    userId: buyer,
+    userId: sale.buyer,
     type: 'buyer_' + productStatus.PENDING_SWAPSPOT_PICKUP,
     args: {
-      title
+      title: getProductTitleFromSale(sale),
+      swapSpotName: swapSpotDoc.swapSpotName,
     }
   });
 };
 
 const handleSwapSpotFulfillment = async ({ swapSpotId, userAndSaleId, stripe }) => {
-  // TODO: handle bundles
   const status = productStatus.COMPLETED;
-  if (await isSaleStatusUpdated(productId, status)) {
+  if (await isSaleStatusUpdated(userAndSaleId, status)) {
     return;
   }
 
-  const { buyer, seller } = await updateUserSwapSpotInventoryStatus(swapSpotId, userAndSaleId, status);
-  const { paymentIntent, product: orderProduct, productBundle } = await updateUserOrderStatus(buyer, userAndSaleId, status);
-  const product = await updateSaleStatus(userAndSaleId, status);
-  const { purchasePriceDetails } = product;
+  const sale = await updateSaleStatus(userAndSaleId, status);
+  await updateUserSwapSpotInventoryStatus(swapSpotId, userAndSaleId, status);
+  const { paymentIntent } = await updateUserOrderStatus(sale.buyer, sale.orderId, status);
+  const { purchasePriceDetails } = sale;
   await handleStripeTransfers({
     swapSpotId,
     paymentIntent,
     purchasePriceDetails,
-    seller,
+    seller: sale.seller,
     stripe,
-    productId,
+    userAndSaleId,
   });
   await sendNotificationToUser({
-    userId: seller,
+    userId: sale.seller,
     type: 'seller_' + orderActions.SWAPSPOT_FULFILLMENT,
     args: {}
   });
   await sendNotificationToUser({
-    userId: buyer,
+    userId: sale.buyer,
     type: 'buyer_' + productStatus.COMPLETED,
     args: {
-      title
+      title: getProductTitleFromSale(sale),
     }
   });
 };

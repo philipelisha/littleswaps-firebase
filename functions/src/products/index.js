@@ -256,3 +256,4 @@ export const onShare = async (data, context) => {
 }
 
 export { deleteProductSingle } from './deleteProductSingle.js';
+export { generateProductListing } from './generateProductListing.js';
