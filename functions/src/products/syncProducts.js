@@ -10,6 +10,7 @@ export const syncProducts = async ({
 }) => {
   const db = admin.firestore();
   const batch = db.batch();
+  const updatedActive = beforeData.active !== data.active;
   try {
     const updatedTitle = beforeData.title !== data.title;
     const updatedImage = beforeData.mainImage !== data.mainImage;
@@ -21,7 +22,8 @@ export const syncProducts = async ({
       updatedImage ||
       updatedSize ||
       updatedPriceCurrency ||
-      updatedPrice
+      updatedPrice ||
+      updatedActive
     ) {
 
       const likeSnapShot = await db
@@ -37,6 +39,7 @@ export const syncProducts = async ({
           size: data.size,
           price: data.price,
           priceCurrency: data.priceCurrency,
+          inActive: !data.active,
         });
       });
 
@@ -76,6 +79,7 @@ export const syncProducts = async ({
                   title: data.title,
                   ...(updatedImage && { mainImage: data.mainImage }),
                   ...(updatedPrice && { price: data.price }),
+                  ...(updatedActive && { inActive: data.active }),
                 };
               }
               return product;
@@ -94,7 +98,7 @@ export const syncProducts = async ({
   try {
     updateUsersListingCounts(data.user, {
       isActive: data.active,
-      updatingActive: beforeData.active !== data.active,
+      updatingActive: updatedActive,
       isSold: Boolean(!beforeData.purchaseDate && data.purchaseDate),
     });
   } catch (error) {
@@ -108,7 +112,7 @@ export const syncProducts = async ({
   }
 
   try {
-    if (beforeData.price > data.price) {
+    if (beforeData.price > data.price && data.active) {
       logger.info('price drop alert');
       const likesSnapShot = await db
         .collection("likes")

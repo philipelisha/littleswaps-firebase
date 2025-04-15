@@ -267,4 +267,81 @@ module.exports = [{
   signUpLocation: '',
   username: 'philip14',
   discountCodesUsed: ['ONETIMEUSE10'],
+},
+{
+  address: {
+    street: "195 N Bedford Rd A",
+    street2: "",
+    city: "Mt Kisco",
+    state: "NY",
+    zip: "10549",
+    country: 'US',
+  },
+  appIdentifier: "com.littleswaps",
+  badgeCount: 0,
+  createdAt: 1732031021,
+  description: "Instructions for pickup, and drop off: Park your vehicle at the designated Drive Up parking spaces and we’ll bring them out to you when you arrive.",
+  email: "target@littleswaps.com",
+  firstName: "Target - Forest Hill",
+  followers: 0,
+  g: {
+    geohash: "dr7d6eujy9zu",
+    geopoint: {
+      latitude: 41.21635,
+      longitude: -73.72172
+    }
+  },
+  isSwapSpot: true,
+  isSwapSpotActive: true,
+  lastName: "",
+  lastOnlineTimestamp: 1732505049,
+  location: {
+    latitude: 41.1983543,
+    longitude: -73.712479
+  },
+  locationName: "Bedford Corners, NY",
+  parentInfo: {
+    isParent: "NO_ANSWER"
+  },
+  phoneNumber: "(804) 330-7365",
+  profileImage: "https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/images%2Fprofile%2F8z9QhrNkn6Z7c2RrqQx3bvJ7dgk1.jpg?alt=media&token=4e970acc-1a8e-4997-b9c7-0ca0765dc265",
+  profileImageCover: "https://firebasestorage.googleapis.com/v0/b/babalu-476f1.appspot.com/o/app%2Fprofile%2FdefaultProfileImageCover.png?alt=media",
+  pushKitToken: "",
+  pushToken: "c7O-xLK9TP-xeWkLWKprXe:APA91bGbs33J7afo0UcMOivMbDwy8TEJfBVnttwrcb-t0z2h3zpcCHggdWmnoOenLzmOqsK9TwmJhemRosOh8EXKrKHbWsVUgzpwTqf1rvRE0RWC6JC9V-8",
+  signUpLocation: "",
+  swapSpotHours: {
+    default: {
+      monday: {
+        open: "9:00 am",
+        close: "10:00 pm"
+      },
+      tuesday: {
+        open: "9:00 am",
+        close: "10:00 pm"
+      },
+      wednesday: {
+        open: "9:00 am",
+        close: "10:00 pm"
+      },
+      thursday: {
+        open: "9:00 am",
+        close: "10:00 pm"
+      },
+      friday: {
+        open: "9:00 am",
+        close: "10:00 pm"
+      },
+      saturday: {
+        open: "9:00 am",
+        close: "10:00 pm"
+      },
+      sunday: {
+        open: "9:00 am",
+        close: "6:00 pm"
+      },
+    }
+  },
+  swapSpotName: "Target - Forest Hill",
+  username: "target8025",
+  website: "https://www.target.com"
 },]

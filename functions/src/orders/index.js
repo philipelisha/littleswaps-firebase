@@ -61,22 +61,52 @@ export const createOrder = async (event, stripe = stripeSDK) => {
 
     const isSwapSpot = Boolean(order.selectedSwapSpot);
 
-    sendNotification(order, userId);
+    try {
+      sendNotification(order, userId);
+    } catch (error) {
+      logger.error(`Error sending notification: ${error.message}`, error);
+    }
 
-    const salesRef = userRef.doc(order.seller).collection('sales')
-    const saleDoc = await salesRef.add({
-      purchaseDate: order.purchaseDate,
-      status: order.status,
-      buyer: userId,
-      product: order.product,
-      productBundle: order.productBundle,
-      discountData: order.discountData,
-      purchasePriceDetails: order.purchasePriceDetails,
-      ...(order.selectedSwapSpot && { selectedSwapSpot: order.selectedSwapSpot }),
-      ...(order.selectedAddress && { selectedAddress: order.selectedAddress }),
-      shippingIncluded: order.shippingIncluded,
-      orderId: orderDoc.id,
-    })
+    try {
+      await updateLikesWithIsSold(order.productBundle?.map(item => item.productId) || [order.product.productId]);
+    } catch (error) {
+      logger.error(`Error updating likes as sold: ${error.message}`, error);
+    }
+
+    try {
+      await updateCartsWithIsSold(order.productBundle?.map(item => item.productId) || [order.product.productId]);
+    } catch (error) {
+      logger.error(`Error updating carts as sold: ${error.message}`, error);
+    }
+
+    let salesRef;
+    let saleDoc;
+    try {
+      salesRef = userRef.doc(order.seller).collection('sales')
+      saleDoc = await salesRef.add({
+        purchaseDate: order.purchaseDate,
+        status: order.status,
+        buyer: userId,
+        product: order.product,
+        productBundle: order.productBundle,
+        discountData: order.discountData || null,
+        purchasePriceDetails: order.purchasePriceDetails,
+        ...(order.selectedSwapSpot && { selectedSwapSpot: order.selectedSwapSpot }),
+        ...(order.selectedAddress && { selectedAddress: order.selectedAddress }),
+        shippingIncluded: order.shippingIncluded,
+        orderId: orderDoc.id,
+      })
+    } catch (error) {
+      logger.error(`Error creating sale document: ${error.message}`, error);
+    }
+
+    try {
+      userRef.doc(userId).collection('orders').doc(orderId).update({
+        salesId: saleDoc.id,
+      })
+    } catch (error) {
+      logger.error(`Error updating the order with the sale id: ${error.message}`, error);
+    }
 
     if (order.shippingRate) {
       await createLabel({
@@ -107,7 +137,7 @@ export const createOrder = async (event, stripe = stripeSDK) => {
           ? productStatus.PENDING_SWAPSPOT_ARRIVAL
           : productStatus.PENDING_SHIPPING,
         purchaseDate: order.purchaseDate,
-        discountData: order.discountData,
+        discountData: order.discountData || null,
         purchasePriceDetails: order.purchasePriceDetails,
         orderId: orderDoc.id,
         salesId: saleDoc.id,
@@ -130,21 +160,23 @@ export const createOrder = async (event, stripe = stripeSDK) => {
     }
 
     if (isSwapSpot) {
-      // TODO: handle Bundles
       await userRef.doc(order.selectedSwapSpot).collection('swapSpotInventory').add({
-        title: order.title,
         buyer: userId,
-        mainImage: order.mainImage,
         product: order.product,
+        productBundle: order.productBundle,
         purchaseDate: order.purchaseDate,
+        updated: order.purchaseDate,
         seller: order.seller,
         status: productStatus.PENDING_SWAPSPOT_ARRIVAL,
+        userAndSaleId: `${order.seller}_${saleDoc.id}`,
+        isCompleted: false,
+        orderId: orderDoc.id,
+        salesId: saleDoc.id,
       });
 
       const swapSpotDoc = await userRef.doc(order.selectedSwapSpot).get();
       const swapSpot = swapSpotDoc.data();
 
-      const { length, width, height, distanceUnit } = order.parcel;
       await sendEmail({
         email: swapSpot.email,
         templateId: emailTemplates.SWAPSPOT_NEW_ORDER,
@@ -152,10 +184,10 @@ export const createOrder = async (event, stripe = stripeSDK) => {
           name: `${swapSpot.firstName} ${swapSpot.lastName}`,
           product: [{
             date: format(new Date(order.purchaseDate.seconds * 1000), 'MM/dd/yyyy'),
-            size: `${length}${distanceUnit} x ${width}${distanceUnit} x ${height}${distanceUnit}`,
+            size: 'Typically 6x9 to 12x15 inches',
             username: seller.username,
-            arrival_date: format(addBusinessDays(new Date(order.purchaseDate.seconds * 1000), 3), 'MM/dd/yyyy'),
-            pickup_date: format(addBusinessDays(new Date(order.purchaseDate.seconds * 1000), 6), 'MM/dd/yyyy'),
+            arrival_date: 'On or before: ' + format(addBusinessDays(new Date(order.purchaseDate.seconds * 1000), 3), 'MM/dd/yyyy'),
+            pickup_date: 'On or before: ' + format(addBusinessDays(new Date(order.purchaseDate.seconds * 1000), 6), 'MM/dd/yyyy'),
             order_number: orderId.slice(0, 6)
           }]
         }
@@ -207,5 +239,65 @@ export const createOrder = async (event, stripe = stripeSDK) => {
 
   } catch (error) {
     logger.error(`Error processing order creation: ${error.message}`, error);
+  }
+};
+
+const updateLikesWithIsSold = async (productIds) => {
+  try {
+    const batch = db.batch();
+
+    for (const productId of productIds) {
+      const likesSnapshot = await db.collection('likes')
+        .where('product', '==', productId)
+        .get();
+      likesSnapshot.forEach(doc => {
+        batch.update(doc.ref, { isSold: true });
+      });
+    }
+
+    await batch.commit();
+    logger.info(`Likes updated for products: ${productIds.join(', ')}`);
+  } catch (error) {
+    logger.error(`Error updating likes: ${error.message}`, error);
+  }
+};
+
+const updateCartsWithIsSold = async (productIds) => {
+  try {
+    const batch = db.batch();
+
+    for (const productId of productIds) {
+      const cartSnapshot = await db
+        .collection("carts")
+        .where("productIds", "array-contains", productId)
+        .get();
+
+      cartSnapshot.forEach((doc) => {
+        const cartRef = doc.ref;
+        const cartData = doc.data();
+
+        const updatedSellers = cartData.sellers.map((seller) => {
+          return {
+            ...seller,
+            products: seller.products.map((product) => {
+              if (product.productId === productId) {
+                return {
+                  ...product,
+                  isSold: true,
+                };
+              }
+              return product;
+            }),
+          };
+        });
+
+        batch.update(cartRef, { sellers: updatedSellers });
+      });
+    }
+
+    await batch.commit();
+    logger.info(`Carts updated with isSold for products: ${productIds.join(', ')}`);
+  } catch (error) {
+    logger.error(`Error updating carts with isSold: ${error.message}`, error);
   }
 };
